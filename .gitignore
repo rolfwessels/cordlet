@@ -1,0 +1,21 @@
+# Gradle and Android build output
+.gradle/
+**/build/
+**/.cxx/
+
+# Local Android SDK configuration
+local.properties
+**/local.properties
+
+# IDE state
+.idea/
+*.iml
+
+# Generated packages and captures
+*.apk
+*.aab
+captures/
+
+# OS metadata
+.DS_Store
+Thumbs.db
