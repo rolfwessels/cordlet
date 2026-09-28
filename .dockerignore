@@ -1,0 +1,12 @@
+.git
+.gitignore
+.gradle
+.idea
+**/.DS_Store
+**/build
+**/.cxx
+**/local.properties
+*.iml
+*.apk
+*.aab
+captures

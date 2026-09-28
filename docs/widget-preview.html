@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cordlet — Utility Strip Preview</title>
+<style>
+  :root{--bg:#0b0e14;--panel:#181d27;--well:#0f131a;--line:#2a3140;--text:#f6f8fb;--muted:#8c94a3;--mint:#32d3a4;--red:#ff5f74}
+  *{box-sizing:border-box}html{color-scheme:dark}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 10%,#1a2230 0,#0b0e14 48%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;display:grid;place-items:center}
+  button,input{font:inherit}.page{width:min(900px,calc(100% - 32px));padding:54px 0}.eyebrow{font:700 11px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--mint);margin-bottom:11px}h1{font-size:clamp(34px,7vw,62px);letter-spacing:-.055em;line-height:.96;margin:0 0 14px}.intro{max-width:580px;color:var(--muted);line-height:1.6;font-size:14px;margin:0 0 46px}
+  .stage{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);border-radius:28px;padding:clamp(22px,6vw,60px);box-shadow:0 30px 80px rgba(0,0,0,.25);position:relative;overflow:hidden}.stage:before{content:"";position:absolute;inset:auto -80px -120px auto;width:330px;height:330px;background:radial-gradient(circle,rgba(50,211,164,.12),transparent 67%);pointer-events:none}
+  .home-label{display:flex;justify-content:space-between;gap:12px;color:#686f7c;font-size:11px;margin:0 4px 13px}.widget{position:relative;width:100%;display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px;box-shadow:0 20px 60px rgba(0,0,0,.42);transition:.2s transform,.2s box-shadow}.widget:hover{transform:translateY(-2px);box-shadow:0 24px 70px rgba(0,0,0,.5)}
+  .avatar{width:36px;height:36px;flex:0 0 36px;border-radius:10px;background:var(--mint);color:#07110e;display:grid;place-items:center;font-weight:850;font-size:13px}.composer{display:flex;gap:9px;flex:1;min-width:0}.input-wrap{position:relative;flex:1;min-width:0;background:var(--well);border:1px solid #252c38;border-radius:10px}input{width:100%;height:48px;background:transparent;border:0;outline:0;color:var(--text);padding:0 14px;border-radius:10px}input::placeholder{color:#636b79}.mic{width:48px;height:48px;flex:0 0 48px;border:0;border-radius:10px;background:var(--mint);color:#07110e;display:grid;place-items:center;cursor:pointer;transition:.16s transform,.16s background,.16s box-shadow}.mic:hover{transform:scale(1.04)}.mic:active{transform:scale(.96)}.mic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.recording .mic{background:var(--red);color:white;box-shadow:0 0 0 6px rgba(255,95,116,.13)}.recording .mic svg{animation:pulse .8s ease-in-out infinite alternate}@keyframes pulse{to{transform:scale(.76);opacity:.65}}
+  .status{position:absolute;left:14px;bottom:4px;color:var(--muted);font-size:9px;opacity:0;transform:translateY(3px);transition:.18s}.has-status .status{opacity:1;transform:none}.has-status input{padding-bottom:12px}.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:22px}.note{border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.025);border-radius:14px;padding:14px}.note strong{font-size:12px;display:block;margin-bottom:5px}.note span{font-size:11px;line-height:1.45;color:var(--muted)}.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,18px);opacity:0;background:#f5f6f8;color:#13161c;border-radius:999px;padding:11px 16px;font-size:12px;font-weight:750;box-shadow:0 14px 45px rgba(0,0,0,.4);transition:.22s;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}
+  @media(max-width:620px){.page{padding:32px 0}.stage{padding:22px 14px}.widget{gap:9px}.avatar{width:32px;height:32px;flex-basis:32px}.notes{grid-template-columns:1fr}.home-label span:last-child{display:none}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="eyebrow">Cordlet · selected concept</div>
+  <h1>Utility Strip</h1>
+  <p class="intro">A compact Android home-screen shortcut for sending text and voice messages to a configured Discord destination.</p>
+  <section class="stage">
+    <div class="home-label"><span>HOME-SCREEN WIDGET · 4 × 1</span><span>INTERACTIVE PROTOTYPE</span></div>
+    <div class="widget">
+      <div class="avatar">C</div>
+      <div class="composer">
+        <div class="input-wrap"><input aria-label="Discord message" placeholder="Send something quickly…" autofocus /><span class="status" aria-live="polite"></span></div>
+        <button class="mic" aria-label="Record voice message"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg></button>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="note"><strong>Text</strong><span>Type a message and press Enter to send.</span></div>
+      <div class="note"><strong>Voice</strong><span>Tap once to record and again to send.</span></div>
+      <div class="note"><strong>Feedback</strong><span>Inline status confirms recording and delivery.</span></div>
+    </div>
+  </section>
+</main>
+<div class="toast" role="status" aria-live="polite"></div>
+<script>
+  const widget=document.querySelector('.widget'),input=document.querySelector('input'),mic=document.querySelector('.mic'),status=document.querySelector('.status'),toast=document.querySelector('.toast');let recording=false,timer,started,toastTimer;
+  function notify(text){toast.textContent=text;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1700)}
+  function clearStatus(){setTimeout(()=>widget.classList.remove('has-status'),1800)}
+  input.addEventListener('keydown',e=>{if(e.key==='Enter'&&input.value.trim()){const msg=input.value.trim();input.value='';status.textContent='Sent to Discord';widget.classList.add('has-status');notify('Message sent · “'+msg.slice(0,34)+(msg.length>34?'…':'')+'”');clearStatus()}});
+  mic.addEventListener('click',()=>{recording=!recording;if(recording){widget.classList.add('recording','has-status');started=Date.now();status.textContent='Recording · 0:00';timer=setInterval(()=>{const s=Math.floor((Date.now()-started)/1000);status.textContent='Recording · 0:'+String(s).padStart(2,'0')+' · tap to send'},500)}else{clearInterval(timer);widget.classList.remove('recording');status.textContent='Voice message sent';notify('Voice message sent to Discord');clearStatus()}});
+</script>
+</body>
+</html>
