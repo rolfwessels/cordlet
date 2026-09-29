@@ -17,10 +17,13 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Row
+import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.semantics.contentDescription
 import androidx.glance.semantics.semantics
 import androidx.glance.text.Text
@@ -40,18 +43,23 @@ class CordletWidget : GlanceAppWidget() {
 private fun CordletWidgetContent() {
     val context = LocalContext.current
     val openApp = actionStartActivity(Intent(context, MainActivity::class.java))
-    Row(
-        modifier = GlanceModifier.fillMaxSize().background(ImageProvider(R.drawable.cordlet_widget_panel)).padding(10.dp),
+    // The launcher may allocate a taller cell than requested. Keep the artwork
+    // at its content height rather than stretching the panel to fill that cell.
+    Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+      Row(
+        modifier = GlanceModifier.fillMaxWidth().height(68.dp)
+            .background(ImageProvider(R.drawable.cordlet_widget_panel)).padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
-    ) {
+      ) {
         Box(
             modifier = GlanceModifier.size(36.dp).background(ImageProvider(R.drawable.cordlet_widget_mint_tile)),
             contentAlignment = Alignment.Center,
         ) {
             Text("C", style = TextStyle(color = ColorProvider(Color(0xFF07110E)), fontSize = 16.sp))
         }
+        Spacer(modifier = GlanceModifier.width(10.dp))
         Box(
-            modifier = GlanceModifier.defaultWeight().height(48.dp).padding(start = 10.dp)
+            modifier = GlanceModifier.defaultWeight().height(48.dp)
                 .background(ImageProvider(R.drawable.cordlet_widget_text_well))
                 .semantics { contentDescription = context.getString(R.string.widget_open_text) }
                 .clickable(openApp),
@@ -64,8 +72,9 @@ private fun CordletWidgetContent() {
                 maxLines = 1,
             )
         }
+        Spacer(modifier = GlanceModifier.width(10.dp))
         Box(
-            modifier = GlanceModifier.padding(start = 10.dp).size(48.dp)
+            modifier = GlanceModifier.size(48.dp)
                 .background(ImageProvider(R.drawable.cordlet_widget_mint_tile))
                 .semantics { contentDescription = context.getString(R.string.widget_open_voice) }
                 .clickable(openApp),
@@ -77,5 +86,6 @@ private fun CordletWidgetContent() {
                 modifier = GlanceModifier.size(20.dp),
             )
         }
+      }
     }
 }
