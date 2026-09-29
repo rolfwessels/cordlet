@@ -23,6 +23,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -48,6 +50,7 @@ fun UtilityStrip(
     onMicrophoneClick: () -> Unit,
     onSendClick: () -> Unit,
     sending: Boolean = false,
+    focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -78,6 +81,7 @@ fun UtilityStrip(
                 .height(48.dp)
                 .border(1.dp, Color(0xFF252C38), RoundedCornerShape(10.dp))
                 .background(wellColor, RoundedCornerShape(10.dp))
+                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .semantics { contentDescription = "Discord message" },
             decorationBox = { innerTextField ->
                 Box(modifier = Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {

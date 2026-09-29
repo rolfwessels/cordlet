@@ -2,13 +2,13 @@
 
 An open-source Android home-screen shortcut for sending text and voice messages to a configured Discord destination.
 
-Cordlet is intentionally destination-agnostic. The initial configuration will point at a private Discord conversation with Wren, but the project itself should support any valid Discord destination and bot configuration.
+Cordlet is intentionally destination-agnostic. The current test build posts as a configured sender bot into a shared Discord server channel and explicitly mentions a configured recipient bot. It does not post into a DM between other users or bots.
 
 ## Project status
 
 **Phase:** text-to-Discord prototype on `feature/discord-text` (not a tagged release). Widget rendering still needs phone verification.
 
-**Current behavior:** The widget opens the activity. Type a message there and the mint control becomes **Send**; tap it or press keyboard Send to POST as a Discord bot to one configured channel. Success clears the text; failure retains it. With no local configuration the app reports that it is unconfigured. Empty-field mic feedback remains visual-only—no recording or voice upload yet.
+**Current behavior:** The widget's text area opens the activity with its field focused; Glance cannot offer inline typing. Type a message there and the mint control becomes **Send**. Tap it or press keyboard Send to POST as the configured bot into a shared server channel, mentioning the configured recipient bot. Success clears the text; failure retains it. The widget mic target also opens the activity; empty-field mic feedback remains visual-only—no recording or voice upload yet. A successful Discord POST does not prove that the recipient bot processed or replied to it.
 
 **Future product direction:** Each widget instance can select a saved destination profile (bot identity, channel, icon/label); the current `DiscordDestination` is one compile-time test profile, not multi-widget routing yet.
 
@@ -22,13 +22,13 @@ Project notes live in [`docs/architecture.md`](docs/architecture.md) and [`docs/
 
 ## Future per-widget destinations
 
-The current debug build injects **one** `DiscordDestination(botToken, channelId)` from the ignored local file; every widget opens that one composer. For multi-widget support, introduce saved destination profiles with a stable profile ID, channel ID, bot identity/credential reference, label, and icon. Persist a mapping from Android `appWidgetId` to profile ID and pass the selected ID when opening the activity; never assume a process-global destination. Widget setup and credential provisioning will need on-device storage or a relay—do not repeat the compile-time token pattern for multiple published widgets. Voice is a separate milestone.
+The current debug build injects **one** `DiscordDestination(botToken, channelId, recipientBotId)` from the ignored local file; every widget opens that one composer. For multi-widget support, introduce saved destination profiles with a stable profile ID, channel ID, bot identity/credential reference, label, and icon. Persist a mapping from Android `appWidgetId` to profile ID and pass the selected ID when opening the activity; never assume a process-global destination. Widget setup and credential provisioning will need on-device storage or a relay—do not repeat the compile-time token pattern for multiple published widgets. Voice is a separate milestone.
 
 ## Local test-bot setup
 
-1. Create a Discord **test bot** in the Developer Portal and invite it to a test server with **View Channel** and **Send Messages** in the destination channel. Enable Discord Developer Mode and copy that channel's numeric ID. This is a **bot token**, not an application ID, public key, webhook URL, or server ID. Never paste the token into chat or an issue.
-2. Copy `discord.local.properties.example` to `discord.local.properties` in the repository root and fill in `botToken` and `channelId` there. The actual file is ignored by Git and excluded from the Docker build context; `make test`/`make run` transfer it only to the transient build snapshot.
-3. Run `make test && make run`, install the resulting debug APK, type a harmless message, then tap **Send** or keyboard Send. Confirm that it appears in the chosen Discord channel. Failure leaves the message in the field and displays a short error. The bot needs permission to post; no privileged intents are needed for simple text sends.
+1. Invite both a **sender bot** and a recipient bot to a shared server channel. The sender needs **View Channel** and **Send Messages**; the recipient must be configured to process messages from other bots. A bot's own messages cannot be used to wake itself. A guild ID or a private DM channel belonging to other participants is not a send destination for the sender bot.
+2. Fill the Git-ignored `discord.local.properties` in the repository root: `botToken` is the sender's token, `channelId` is the shared **text channel** ID, and `recipientBotId` is the bot to mention. The file is excluded from the Docker image; `make test`/`make run` copy it only into the build snapshot.
+3. Run `make test && make run`, privately install the debug APK, tap the widget text area, type a harmless message, and tap **Send** or keyboard Send. Confirm that the sender bot's message appears in the shared channel with a recipient mention. A recipient reply requires its own bot-message admission policy and is **not** proved by this APK build.
 
 **Security warning:** This is a *test-only compromise*. The bot token is compiled into the **debug APK**, and anyone with that APK (including recipients of a Discord upload/link) can extract and misuse it. The ignored config protects Git, **not the APK**. Use a disposable, minimally privileged bot, do not share the configured APK, and rotate its token after testing. A production version needs a relay or device-local provisioning—not an embedded token. Release builds deliberately omit the test credential.
 

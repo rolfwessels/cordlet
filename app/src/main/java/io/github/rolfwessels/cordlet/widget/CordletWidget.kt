@@ -42,7 +42,7 @@ class CordletWidget : GlanceAppWidget() {
 @Composable
 private fun CordletWidgetContent() {
     val context = LocalContext.current
-    val openApp = actionStartActivity(Intent(context, MainActivity::class.java))
+    val openApp = actionStartActivity(Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_FOCUS_COMPOSER, true))
     // The launcher may allocate a taller cell than requested. Keep the artwork
     // at its content height rather than stretching the panel to fill that cell.
     Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {

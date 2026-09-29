@@ -35,10 +35,11 @@ class DiscordMessageClient {
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 connection.setRequestProperty("User-Agent", "Cordlet/0.1 (Android ${Build.VERSION.SDK_INT})")
                 connection.doOutput = true
-                // Do not turn typed text into Discord mentions or mass notifications.
+                // Mention only the configured recipient; never expand arbitrary
+                // @everyone/@role text from the user's message.
                 val body = JSONObject()
                     .put("content", prepared.content)
-                    .put("allowed_mentions", JSONObject().put("parse", JSONArray()))
+                    .put("allowed_mentions", JSONObject().put("users", JSONArray().put(prepared.destination.recipientBotId)))
                     .toString().toByteArray(Charsets.UTF_8)
                 connection.outputStream.use { it.write(body) }
                 val code = connection.responseCode

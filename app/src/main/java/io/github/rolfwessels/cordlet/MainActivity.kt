@@ -8,6 +8,10 @@ import io.github.rolfwessels.cordlet.ui.CordletApp
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { CordletApp() }
+        setContent { CordletApp(autoFocus = intent.getBooleanExtra(EXTRA_FOCUS_COMPOSER, false)) }
+    }
+
+    companion object {
+        const val EXTRA_FOCUS_COMPOSER = "io.github.rolfwessels.cordlet.FOCUS_COMPOSER"
     }
 }

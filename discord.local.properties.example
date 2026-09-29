@@ -1,5 +1,8 @@
 # Copy this file to discord.local.properties and fill in your *test bot* details.
 # Never send the filled file or an APK containing your bot token to anyone.
 # The token is embedded in the DEBUG APK and can be extracted by its recipient.
+# Sender bot posts into a SHARED server text channel and mentions recipientBotId.
+# A guild ID or a DM channel between other participants cannot be used here.
 botToken=
 channelId=
+recipientBotId=

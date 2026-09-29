@@ -42,11 +42,13 @@ android {
         getByName("debug") {
             buildConfigField("String", "DISCORD_BOT_TOKEN", discordBuildString("botToken"))
             buildConfigField("String", "DISCORD_CHANNEL_ID", discordBuildString("channelId"))
+            buildConfigField("String", "DISCORD_RECIPIENT_BOT_ID", discordBuildString("recipientBotId"))
         }
         getByName("release") {
             // Never put a test bot token in a distributable release APK.
             buildConfigField("String", "DISCORD_BOT_TOKEN", "\"\"")
             buildConfigField("String", "DISCORD_CHANNEL_ID", "\"\"")
+            buildConfigField("String", "DISCORD_RECIPIENT_BOT_ID", "\"\"")
         }
     }
 }

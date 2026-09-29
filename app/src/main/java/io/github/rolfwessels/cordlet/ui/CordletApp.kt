@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,6 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import io.github.rolfwessels.cordlet.BuildConfig
@@ -27,14 +30,22 @@ import io.github.rolfwessels.cordlet.ui.theme.CordletTheme
 import kotlinx.coroutines.launch
 
 @Composable
-fun CordletApp() {
+fun CordletApp(autoFocus: Boolean = false) {
     var composer by remember { mutableStateOf(ComposerState()) }
     var sending by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(autoFocus) {
+        if (autoFocus) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+    }
     val client = remember { DiscordMessageClient() }
     // This is a single compiled-in test destination; widget-instance routing comes later.
-    val destination = remember { DiscordDestination(BuildConfig.DISCORD_BOT_TOKEN, BuildConfig.DISCORD_CHANNEL_ID) }
+    val destination = remember { DiscordDestination(BuildConfig.DISCORD_BOT_TOKEN, BuildConfig.DISCORD_CHANNEL_ID, BuildConfig.DISCORD_RECIPIENT_BOT_ID) }
 
     CordletTheme {
         Box(
@@ -46,6 +57,7 @@ fun CordletApp() {
                     state = composer,
                     onMessageChange = { composer = composer.withMessage(it); status = "" },
                     onMicrophoneClick = { composer = composer.toggleMicrophonePressed() },
+                    focusRequester = focusRequester,
                     sending = sending,
                     onSendClick = {
                         if (!sending && composer.message.isNotBlank()) {
