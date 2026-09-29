@@ -23,7 +23,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -47,9 +46,10 @@ fun UtilityStrip(
     state: ComposerState,
     onMessageChange: (String) -> Unit,
     onMicrophoneClick: () -> Unit,
+    onSendClick: () -> Unit,
+    sending: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val focusManager = LocalFocusManager.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -71,8 +71,8 @@ fun UtilityStrip(
             singleLine = true,
             textStyle = androidx.compose.ui.text.TextStyle(color = CordletText, fontSize = 14.sp),
             cursorBrush = SolidColor(CordletMint),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focusManager.clearFocus() }),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = { if (!sending && state.message.isNotBlank()) onSendClick() }),
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp)
@@ -88,22 +88,24 @@ fun UtilityStrip(
                 }
             },
         )
+        val hasText = state.message.isNotBlank()
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .background(if (state.microphonePressed) pressedColor else CordletMint, RoundedCornerShape(10.dp))
+                .background(if (!hasText && state.microphonePressed) pressedColor else CordletMint, RoundedCornerShape(10.dp))
                 .semantics {
-                    contentDescription = "Microphone button, visual feedback only"
-                    stateDescription = if (state.microphonePressed) "Pressed" else "Not pressed"
+                    contentDescription = if (hasText) "Send Discord message" else "Microphone button, visual feedback only"
+                    if (!hasText) stateDescription = if (state.microphonePressed) "Pressed" else "Not pressed"
                 }
                 .clickable(
                     role = Role.Button,
-                    onClickLabel = if (state.microphonePressed) "Release microphone button" else "Press microphone button",
-                    onClick = onMicrophoneClick,
+                    onClickLabel = if (hasText) "Send message" else "Press microphone button",
+                    onClick = { if (hasText) { if (!sending) onSendClick() } else onMicrophoneClick() },
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            MicrophoneGlyph(color = if (state.microphonePressed) Color.White else inkColor)
+            if (hasText) Text(if (sending) "…" else "Send", color = inkColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            else MicrophoneGlyph(color = if (state.microphonePressed) Color.White else inkColor)
         }
     }
 }

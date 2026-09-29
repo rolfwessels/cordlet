@@ -6,11 +6,11 @@ Cordlet is intentionally destination-agnostic. The initial configuration will po
 
 ## Project status
 
-**Phase:** offline v0 APK ready for physical-phone testing (not yet a tagged release).
+**Phase:** text-to-Discord prototype on `feature/discord-text` (not a tagged release). Widget rendering still needs phone verification.
 
-**This v0:** The activity has an editable text field and a microphone button with visual feedback only. The addable widget opens the activity from either region. Nothing sends, records, persists, or connects to Discord. No internet or microphone permission is requested.
+**Current behavior:** The widget opens the activity. Type a message there and the mint control becomes **Send**; tap it or press keyboard Send to POST as a Discord bot to one configured channel. Success clears the text; failure retains it. With no local configuration the app reports that it is unconfigured. Empty-field mic feedback remains visual-only—no recording or voice upload yet.
 
-**Future product direction:** Utility Strip — a compact shortcut that eventually supports:
+**Future product direction:** Each widget instance can select a saved destination profile (bot identity, channel, icon/label); the current `DiscordDestination` is one compile-time test profile, not multi-widget routing yet.
 
 - A text field for short messages
 - Enter-to-send behavior
@@ -19,6 +19,18 @@ Cordlet is intentionally destination-agnostic. The initial configuration will po
 - Minimal home-screen footprint
 
 Project notes live in [`docs/architecture.md`](docs/architecture.md) and [`docs/plan-installable-v0.md`](docs/plan-installable-v0.md). The interactive browser preview is [`docs/widget-preview.html`](docs/widget-preview.html).
+
+## Future per-widget destinations
+
+The current debug build injects **one** `DiscordDestination(botToken, channelId)` from the ignored local file; every widget opens that one composer. For multi-widget support, introduce saved destination profiles with a stable profile ID, channel ID, bot identity/credential reference, label, and icon. Persist a mapping from Android `appWidgetId` to profile ID and pass the selected ID when opening the activity; never assume a process-global destination. Widget setup and credential provisioning will need on-device storage or a relay—do not repeat the compile-time token pattern for multiple published widgets. Voice is a separate milestone.
+
+## Local test-bot setup
+
+1. Create a Discord **test bot** in the Developer Portal and invite it to a test server with **View Channel** and **Send Messages** in the destination channel. Enable Discord Developer Mode and copy that channel's numeric ID. This is a **bot token**, not an application ID, public key, webhook URL, or server ID. Never paste the token into chat or an issue.
+2. Copy `discord.local.properties.example` to `discord.local.properties` in the repository root and fill in `botToken` and `channelId` there. The actual file is ignored by Git and excluded from the Docker build context; `make test`/`make run` transfer it only to the transient build snapshot.
+3. Run `make test && make run`, install the resulting debug APK, type a harmless message, then tap **Send** or keyboard Send. Confirm that it appears in the chosen Discord channel. Failure leaves the message in the field and displays a short error. The bot needs permission to post; no privileged intents are needed for simple text sends.
+
+**Security warning:** This is a *test-only compromise*. The bot token is compiled into the **debug APK**, and anyone with that APK (including recipients of a Discord upload/link) can extract and misuse it. The ignored config protects Git, **not the APK**. Use a disposable, minimally privileged bot, do not share the configured APK, and rotate its token after testing. A production version needs a relay or device-local provisioning—not an embedded token. Release builds deliberately omit the test credential.
 
 ## Container-first development
 
@@ -100,7 +112,7 @@ The preview represents the intended experience, not a claim that every control c
 
 ## Security direction
 
-A Discord bot token must not be embedded in the APK. Preferred production options:
+A Discord bot token must not be embedded in a **distributed** APK. This branch makes a temporary exception only for a disposable, privately tested debug bot; see the warning above. Preferred production options:
 
 1. **Relay service:** Cordlet authenticates to a small server that owns the Discord credential.
 2. **User-supplied webhook:** simpler, but the webhook remains a sensitive bearer credential on the device.

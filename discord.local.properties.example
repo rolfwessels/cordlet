@@ -1,0 +1,5 @@
+# Copy this file to discord.local.properties and fill in your *test bot* details.
+# Never send the filled file or an APK containing your bot token to anyone.
+# The token is embedded in the DEBUG APK and can be extracted by its recipient.
+botToken=
+channelId=
