@@ -14,7 +14,7 @@ class WidgetArtworkTest {
     @Test fun panelHasRoundedOutlineAndDarkFill() {
         val shape = xml("cordlet_widget_panel.xml").documentElement
         assertEquals("shape", shape.tagName)
-        assertEquals("#191F29", shape.getElementsByTagName("solid").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue)
+        assertEquals("#181D27", shape.getElementsByTagName("solid").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue)
         assertEquals("16dp", shape.getElementsByTagName("corners").item(0).attributes.getNamedItemNS(androidNs, "radius").nodeValue)
         assertEquals("#2A3140", shape.getElementsByTagName("stroke").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue)
     }
