@@ -19,10 +19,13 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import io.github.rolfwessels.cordlet.MainActivity
+import io.github.rolfwessels.cordlet.R
 
 /** A launcher shortcut, not an editor or recorder. Both targets open the app. */
 class CordletWidget : GlanceAppWidget() {
@@ -48,6 +51,7 @@ private fun CordletWidgetContent() {
         Box(
             modifier = GlanceModifier.defaultWeight().height(48.dp).padding(start = 8.dp)
                 .background(Color(0xFF0F131A))
+                .semantics { contentDescription = context.getString(R.string.widget_open_text) }
                 .clickable(openApp),
             contentAlignment = Alignment.CenterStart,
         ) {
@@ -61,6 +65,7 @@ private fun CordletWidgetContent() {
         Box(
             modifier = GlanceModifier.padding(start = 8.dp).size(48.dp)
                 .background(Color(0xFF6FE6BA))
+                .semantics { contentDescription = context.getString(R.string.widget_open_voice) }
                 .clickable(openApp),
             contentAlignment = Alignment.Center,
         ) {

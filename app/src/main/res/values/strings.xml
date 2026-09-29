@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Cordlet</string>
+    <string name="widget_open_text">Open Cordlet to type a message</string>
+    <string name="widget_open_voice">Open Cordlet microphone button; recording unavailable</string>
 </resources>
