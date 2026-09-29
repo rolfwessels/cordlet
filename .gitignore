@@ -7,6 +7,9 @@
 local.properties
 **/local.properties
 
+# Local Discord test credentials
+discord.local.properties
+
 # IDE state
 .idea/
 *.iml

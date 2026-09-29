@@ -1,8 +1,19 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+val localDiscord = Properties().apply {
+    val configFile = rootProject.file("discord.local.properties")
+    if (configFile.isFile) configFile.inputStream().use(::load)
+}
+
+fun discordBuildString(name: String): String {
+    val value = localDiscord.getProperty(name, "")
+    return "\"${value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")}\""
 }
 
 android {
@@ -24,6 +35,21 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    buildTypes {
+        getByName("debug") {
+            buildConfigField("String", "DISCORD_BOT_TOKEN", discordBuildString("botToken"))
+            buildConfigField("String", "DISCORD_CHANNEL_ID", discordBuildString("channelId"))
+            buildConfigField("String", "DISCORD_RECIPIENT_BOT_ID", discordBuildString("recipientBotId"))
+        }
+        getByName("release") {
+            // Never put a test bot token in a distributable release APK.
+            buildConfigField("String", "DISCORD_BOT_TOKEN", "\"\"")
+            buildConfigField("String", "DISCORD_CHANNEL_ID", "\"\"")
+            buildConfigField("String", "DISCORD_RECIPIENT_BOT_ID", "\"\"")
+        }
     }
 }
 
