@@ -41,6 +41,27 @@ make shell
 
 Gradle and Android metadata use named Docker volumes, so repeated builds retain their caches without polluting the host. Run `make help` for the complete command list.
 
+## Development and releases
+
+- Branch from `main` for each change: `feature/<short-name>` for features, `bug/<short-name>` for fixes. Cordlet's installable v0 work is on `feature/installable-v0`.
+- Commit and push the branch, then open a pull request into `main`. Review and run `make test` and `make run` before merging. Do not develop directly on `main`.
+- Keep `main` as the release-ready branch. Create releases **only from `main`**, marked with version tags such as `v0.1.0` after verification; do not tag feature branches.
+- For a new change, start from updated `main`, create a new branch, and repeat. No force-push to `main`.
+
+```bash
+git switch main
+git pull --ff-only origin main
+git switch -c feature/<short-name>
+# Make changes, verify, and commit.
+git push -u origin HEAD
+# Open a PR targeting main; merge after review.
+# Once main is verified for release:
+git switch main
+git pull --ff-only origin main
+git tag -a v0.1.0 -m "Cordlet v0.1.0"
+git push origin v0.1.0
+```
+
 ## MVP
 
 1. Configure a Discord destination and authentication securely.
