@@ -16,7 +16,7 @@ Cordlet is intentionally destination-agnostic. The initial configuration will po
 - Tap once to record; tap again to send
 - Minimal home-screen footprint
 
-The interactive browser preview lives at [`docs/widget-preview.html`](docs/widget-preview.html).
+Project notes live in [`docs/architecture.md`](docs/architecture.md) and [`docs/plan-installable-v0.md`](docs/plan-installable-v0.md). The interactive browser preview is [`docs/widget-preview.html`](docs/widget-preview.html).
 
 ## Container-first development
 
@@ -43,7 +43,7 @@ Gradle and Android metadata use named Docker volumes, so repeated builds retain 
 
 ## Development and releases
 
-- Branch from `main` for each change: `feature/<short-name>` for features, `bug/<short-name>` for fixes. Cordlet's installable v0 work is on `feature/installable-v0`.
+- Branch from `main` for each change: `feature/<short-name>` for features, `bug/<short-name>` for fixes.
 - Commit and push the branch, then open a pull request into `main`. Review and run `make test` and `make run` before merging. Do not develop directly on `main`.
 - Keep `main` as the release-ready branch. Create releases **only from `main`**, marked with version tags such as `v0.1.0` after verification; do not tag feature branches.
 - For a new change, start from updated `main`, create a new branch, and repeat. No force-push to `main`.
@@ -127,5 +127,7 @@ cordlet/
 ├── README.md
 ├── docker-compose.yml
 └── docs/
+    ├── architecture.md
+    ├── plan-installable-v0.md
     └── widget-preview.html
 ```

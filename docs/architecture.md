@@ -82,10 +82,11 @@ cordlet/
 ├── gradle/
 │   ├── libs.versions.toml
 │   └── wrapper/
-├── architecture.md
 ├── build.gradle.kts
 ├── settings.gradle.kts
-└── plan-installable-v0.md
+└── docs/
+    ├── architecture.md
+    └── plan-installable-v0.md
 ```
 
 ## Component responsibilities
