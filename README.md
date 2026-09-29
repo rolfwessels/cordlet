@@ -6,9 +6,11 @@ Cordlet is intentionally destination-agnostic. The initial configuration will po
 
 ## Project status
 
-**Phase:** installable Android shell in progress
+**Phase:** offline v0 APK ready for physical-phone testing (not yet a tagged release).
 
-**Selected direction:** Utility Strip — a compact horizontal widget with:
+**This v0:** The activity has an editable text field and a microphone button with visual feedback only. The addable widget opens the activity from either region. Nothing sends, records, persists, or connects to Discord. No internet or microphone permission is requested.
+
+**Future product direction:** Utility Strip — a compact shortcut that eventually supports:
 
 - A text field for short messages
 - Enter-to-send behavior
