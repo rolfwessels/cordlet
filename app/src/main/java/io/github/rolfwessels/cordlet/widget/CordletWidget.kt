@@ -6,6 +6,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceModifier
+import androidx.glance.Image
+import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.provideContent
@@ -39,37 +41,41 @@ private fun CordletWidgetContent() {
     val context = LocalContext.current
     val openApp = actionStartActivity(Intent(context, MainActivity::class.java))
     Row(
-        modifier = GlanceModifier.fillMaxSize().background(Color(0xFF191F29)).padding(8.dp),
+        modifier = GlanceModifier.fillMaxSize().background(ImageProvider(R.drawable.cordlet_widget_panel)).padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = GlanceModifier.size(36.dp).background(Color(0xFF6FE6BA)),
+            modifier = GlanceModifier.size(36.dp).background(ImageProvider(R.drawable.cordlet_widget_mint_tile)),
             contentAlignment = Alignment.Center,
         ) {
             Text("C", style = TextStyle(color = ColorProvider(Color(0xFF07110E)), fontSize = 16.sp))
         }
         Box(
-            modifier = GlanceModifier.defaultWeight().height(48.dp).padding(start = 8.dp)
-                .background(Color(0xFF0F131A))
+            modifier = GlanceModifier.defaultWeight().height(48.dp).padding(start = 10.dp)
+                .background(ImageProvider(R.drawable.cordlet_widget_text_well))
                 .semantics { contentDescription = context.getString(R.string.widget_open_text) }
                 .clickable(openApp),
             contentAlignment = Alignment.CenterStart,
         ) {
             Text(
-                "Send something quickly…",
+                "Tap to type",
                 modifier = GlanceModifier.padding(horizontal = 12.dp),
                 style = TextStyle(color = ColorProvider(Color(0xFFADB4C0)), fontSize = 14.sp),
                 maxLines = 1,
             )
         }
         Box(
-            modifier = GlanceModifier.padding(start = 8.dp).size(48.dp)
-                .background(Color(0xFF6FE6BA))
+            modifier = GlanceModifier.padding(start = 10.dp).size(48.dp)
+                .background(ImageProvider(R.drawable.cordlet_widget_mint_tile))
                 .semantics { contentDescription = context.getString(R.string.widget_open_voice) }
                 .clickable(openApp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("🎙", style = TextStyle(fontSize = 22.sp))
+            Image(
+                provider = ImageProvider(R.drawable.cordlet_widget_microphone),
+                contentDescription = null,
+                modifier = GlanceModifier.size(20.dp),
+            )
         }
     }
 }
