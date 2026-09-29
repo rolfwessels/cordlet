@@ -6,7 +6,7 @@ Cordlet is intentionally destination-agnostic. The initial configuration will po
 
 ## Project status
 
-**Phase:** concept and interaction design
+**Phase:** installable Android shell in progress
 
 **Selected direction:** Utility Strip — a compact horizontal widget with:
 
@@ -29,17 +29,22 @@ make up
 # Confirm the container toolchain
 make doctor
 
-# Run tests once the Android project has been scaffolded
+# Run unit tests on the current host sources
 make test
 
-# Build the debug APK
+# Build the debug APK and copy it to the host
 make run
+make apk-path
 
 # Open a development shell when needed
 make shell
 ```
 
-Gradle and Android metadata use named Docker volumes, so repeated builds retain their caches without polluting the host. Run `make help` for the complete command list.
+`make apk-path` prints the absolute path to `app/build/outputs/apk/debug/app-debug.apk` on the host. `make run` builds in the container and copies the APK to that path; it does not launch the app. The build and test targets transfer only the Gradle project inputs and `app/src` into a fresh container-only snapshot before each invocation. This avoids relying on a stale Compose bind mount, without deleting or overwriting host sources. Gradle and Android metadata use named Docker volumes, so repeated builds retain their caches without polluting the host. Run `make help` for the complete command list.
+
+### Install on a phone
+
+Enable Developer options and USB debugging on an Android 8.0 (API 26) or newer phone, connect it, and authorize the computer's ADB key on the phone. If the development container can see the device through ADB, run `make install`; it builds the APK and runs `adb install -r` inside the container. Docker does not automatically pass host USB devices into containers, so a phone attached to the host may still be unreachable inside the container. If so, run `make run`, copy the host APK shown by `make apk-path` to the phone (USB file transfer, cloud storage, or another trusted method), and open it on the phone to install. Android may ask you to allow installation from that file manager. No host Android SDK or ADB is required for this fallback.
 
 ## Development and releases
 
