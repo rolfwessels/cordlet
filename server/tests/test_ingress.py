@@ -19,7 +19,7 @@ class IngressTests(unittest.IsolatedAsyncioTestCase):
             event._gateway_accepted = True
         self.discord = SimpleNamespace(handle_message=accept)
         from gateway.config import Platform
-        self.runner = SimpleNamespace(adapters={Platform.DISCORD: self.discord})
+        self.runner = SimpleNamespace(adapters={Platform.DISCORD: self.discord}, _is_user_authorized=lambda source: True)
         self.api = SimpleNamespace(gateway_runner=self.runner)
         self.config = {'token':'test-device-token-not-for-production', 'chat_id':'1477001090951286794', 'user_id':'306142339628400640', 'user_name':'Splicer'}
         self.app = web.Application(client_max_size=8192)
@@ -44,7 +44,7 @@ class IngressTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(e.source.chat_id,self.config['chat_id'])
         self.assertEqual(e.source.user_id,self.config['user_id'])
         self.assertEqual(e.source.chat_type,'dm')
-        self.assertFalse(e.internal)
+        self.assertTrue(e.internal)
         self.assertFalse(e.allow_gateway_control)
         self.assertIsNone(e.message_id)
         from gateway.session import build_session_key
@@ -80,6 +80,38 @@ class IngressTests(unittest.IsolatedAsyncioTestCase):
         self.discord.handle_message = accept
         r = await self.post({'request_id':'a','text':'hello'})
         self.assertEqual(r.status,202)
+    async def test_busy_input_queues_instead_of_steering(self):
+        from gateway.run_busy import GatewayBusySessionMixin
+        pending = SimpleNamespace(_pending_messages={})
+        async def no_approval(event, key):
+            return False
+        actual_runner = SimpleNamespace(
+            _is_user_authorized=lambda source: True,
+            _effective_busy_input_mode=lambda source: 'steer',
+            _draining=False,
+            _route_plaintext_approval_while_busy=no_approval,
+            _adapter_for_source=lambda source: pending,
+        )
+        actual_runner._queue_or_replace_pending_event = lambda key, event: GatewayBusySessionMixin._enqueue_fifo(actual_runner, key, event, pending)
+        async def busy(event):
+            from gateway.session import build_session_key
+            handled = await GatewayBusySessionMixin._handle_active_session_busy_message(actual_runner, event, build_session_key(event.source))
+            if handled and event._gateway_accepted:
+                self.events.append(event)
+        self.discord.handle_message = busy
+        r = await self.post({'request_id':'busy-proof','text':'hello'})
+        self.assertEqual(r.status,202)
+        self.assertEqual(len(self.events),1)
+    async def test_owner_authorization_checked_before_dispatch(self):
+        self.runner._is_user_authorized = lambda source: False
+        r = await self.post({'request_id':'a','text':'hello'})
+        self.assertEqual(r.status,403)
+        self.assertEqual(self.events,[])
+    async def test_missing_authorization_gate_fails_closed(self):
+        del self.runner._is_user_authorized
+        r = await self.post({'request_id':'a','text':'hello'})
+        self.assertEqual(r.status,503)
+        self.assertEqual(self.events,[])
     async def test_invalid_json(self):
         r = await self.client.post('/cordlet/messages', data='not json', headers=self.headers)
         self.assertEqual(r.status,400)

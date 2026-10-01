@@ -42,6 +42,7 @@ This makes a REAL harmless host-originated request and prints only a unique proo
 - No custom rate limiting yet; keep the route private and use only manual probes.
 - Synthetic events have no native Discord message ID, so native reactions/reply references on the input are unavailable.
 - Phone text cannot execute slash commands or resolve gateway approval/clarify controls in this proof.
+- The route checks the configured owner's authorization explicitly, then sends a synthetic event with gateway controls disabled. This uses the runner's FIFO while busy instead of steering into the active turn. Missing authorization support fails closed with 503; revoked/unauthorized owner returns 403.
 - The route uses the normal Discord session key and queue, but live processing/delivery must still be proven.
 - Tailscale/private HTTPS and phone reachability are not configured. Do not publish the entire Hermes API to the Internet. When attaching Tailscale, prefer exposing only the Cordlet route through a narrow proxy; never give the phone the general API key.
 

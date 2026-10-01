@@ -62,10 +62,16 @@ def wire(app, api_adapter, config):
                                    chat_type='dm', user_id=config['user_id'],
                                    user_name=config.get('user_name', 'Cordlet user'),
                                    chat_name=config.get('chat_name', 'Cordlet DM'))
+            # Synthetic events are FIFO-queued while busy. Check owner authorization
+            # explicitly first because the cold internal-event path bypasses that gate.
+            authorize = getattr(runner, '_is_user_authorized', None)
+            if not callable(authorize):
+                return web.json_response({'error':'authorization_unavailable'}, status=503)
+            if not authorize(source):
+                return web.json_response({'error':'owner_not_authorized'}, status=403)
             # No fabricated Discord message ID: there is no native message to reply/react to.
-            # Normal owner authorization remains active; payload cannot run slash controls.
             event = MessageEvent(text=text, source=source, user_id=source.user_id,
-                                 user_name=source.user_name, internal=False,
+                                 user_name=source.user_name, internal=True,
                                  allow_gateway_control=False,
                                  metadata={'cordlet_request_id':rid})
             await discord.handle_message(event)
