@@ -10,7 +10,7 @@ class VoiceSendTest {
         val idle = VoiceUploadState()
         assertTrue(idle.canSend(VoicePhase.SAVED))
         assertTrue(idle.canSend(VoicePhase.PAUSED))
-        assertFalse(idle.canSend(VoicePhase.RECORDING))
+        assertTrue(idle.canSend(VoicePhase.RECORDING))
         val sending = idle.begin()
         assertTrue(sending.controlsLocked)
         assertFalse(sending.canSend(VoicePhase.SAVED))

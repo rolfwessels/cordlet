@@ -16,6 +16,9 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.Cordlet">
         <activity
+            android:name=".widget.WidgetVoiceLaunchActivity"
+            android:exported="false" />
+        <activity
             android:name=".voice.RecorderActivity"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|keyboardHidden"

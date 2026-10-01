@@ -1,31 +1,35 @@
-# Voice recording and Send milestone
+# Ephemeral quick voice capture
 
-## Current scope (`feature/voice-recorder`, 0.4.0-voice-send / code 5)
+## Current scope (`feature/voice-recorder`, 0.4.1-quickvoice / code 6)
 
-The widget text region opens the focused text composer; text sending is unchanged. Both mic actions open the non-exported recorder. Imported bot name/offline icon and the real multi-bar amplitude waveform are preserved.
+Every widget/composer microphone tap creates a **new private capture** and starts immediately once microphone permission is granted and the recorder is foreground. Saved history is never the default mic route. The unchanged widget text region still focuses the text composer; imported identity, icons and real waveform remain unchanged.
 
-- Permission-gated foreground AAC/M4A capture in app-private `files/voice/latest.m4a`; five active minutes and 4 MiB capture limit. Pause/resume, Finish & review, playback and explicit Discard remain available. No storage permission or recording service.
-- Leaving foreground pauses capture/stops playback; `onStop` finalizes MPEG-4. Saved audio is recovered after reopening. Unreadable audio/metadata is blocked and kept until explicit Discard. No automatic overwrite.
-- Send from paused or saved review finalizes the recorder before reading bytes. Raw fixed-length streamed POST goes to the existing imported `/cordlet/messages` endpoint with bearer authentication, `audio/mp4`, and `X-Cordlet-Request-ID`; no multipart/base64/alternate endpoint. Client request bound is 10 MiB, response bound 8192 bytes, connect timeout 10 seconds and read timeout 180 seconds. Redirects are refused.
-- Atomic synced private `latest.properties` stores the stable per-note identity and accepted flag. Failures keep file and ID; a matching HTTP 202 accepted receipt is the only success. Acceptance is persisted, disables repeat Send, and keeps audio for playback until Discard. Only Discard permits a new note/identity.
-- Uploading locks playback, Discard and repeat Send. A process-owned session/coroutine survives activity recreation/reopening, so another activity cannot overwrite an in-flight file. Process death stops work; reopening recovers the same note/ID without auto-upload. Retry after uncertain acceptance uses the same ID. Server deduplication is finite/process-local, so server restart/eviction is not an exactly-once guarantee.
-- Companion ingress transcribes before admission; acceptance means reply should be read in Discord, not that agent work/reply delivery has finished.
+- Each launch owns a random safe session ID, `files/voice/<session-id>.m4a` and an atomic synced `<session-id>.properties` request-identity sidecar. Existing `latest.*` files are left untouched, not overwritten or deleted. Recreation restores only its explicitly saved session ID.
+- Five active minutes / 4 MiB capture limit. Pause/resume and optional Finish & review/playback remain, but **Send works while recording**, paused or saved when configured, microphone-permitted and nonempty. One tap finalizes MPEG-4 and uploads in the same flow. No mandatory pause/review step.
+- The foreground recording window uses `FLAG_KEEP_SCREEN_ON`; foreground upload also keeps it awake. Pause/background/stop clear it. No WAKE_LOCK permission or foreground recording service. Leaving foreground finalizes and releases capture rather than recording in the background.
+- Upload locks repeat Send, playback and Discard. An independently owned per-note coroutine can finish after another fresh capture launches; its result cannot mutate, delete or close the new note. Process death ends uploads; no durable automatic outbox.
+- The existing endpoint receives raw `audio/mp4`, bearer auth and stable `X-Cordlet-Request-ID`. Bounds: 10 MiB request / 8192-byte receipt, 10-second connect / 180-second read timeout; redirects refused.
+- Only verified HTTP 202, `status: accepted` and the exact request ID, then persisted acceptance, closes the displayed recorder automatically. Failure keeps that note on screen with the same identity for explicit retry. Detached acceptance never closes a newer capture.
+- Notes remain app-private unless explicitly sent. Nothing automatically discards unsent, failed, unreadable or accepted audio. Explicit Discard affects only the displayed note and is blocked during its upload. Retained files have **no automatic expiry or aggregate quota**: many abandoned notes can use storage. There is no history browser/recovery UI in this scope; opening a fresh mic does not recover old notes. Same-note task recreation can restore a retained note, but archival recovery after task loss is not exposed. Clear app data/uninstall removes all private notes and configuration.
+- The recorder and widget launch activity are non-exported. The direct widget activity PendingIntent creates a fresh trusted launch nonce at tap time, avoiding receiver/service activity trampolines. Exported composer intents remain text-only.
 
 ## Verification
 
-JVM regression tests exercise request validation, exact receipts, durable identity/acceptance, failure retry identity, upload state and corrupt metadata. Source/manifest guards cover Android wiring, lifecycle finalization and streamed transport; they are not device instrumentation. Container lint/build and APK inspection must also pass. **Installed-phone voice capture, send, transcription/reply and process/lifecycle proof remain pending.** Prior text phone proof does not prove voice.
+JVM policy/regression and source guards cover freshness, send eligibility, exact acceptance, independent durable identities, keep-awake policy and lifecycle wiring. They are not device instrumentation. Container tests, lint, APK build and merged-manifest inspection must pass.
 
-## Phone checklist (pending)
+The user supplied a successful phone voice sample before this correction; that does **not** verify this new quick-capture APK or the lifecycle changes.
 
-1. Install on Android 8/API 26+ with existing private config/VPN. Check widget text focus and unchanged text Send; imported avatar/name still render.
-2. Grant/deny mic permission; verify waveform responds to speech, freezes on Pause, and elapsed excludes paused time. Finish and play audible recording.
-3. Send a short unique harmless voice note from Pause: capture must finalize, upload state lock controls and repeat taps, acceptance display only after matching receipt, and one expected reply appear in the intended Discord DM.
-4. After acceptance, reopen and force-stop/reopen: audio remains playable, Send remains disabled. Discard then record a new note.
-5. Offline/missing-config/timeout/invalid receipt: audio remains playable; retry uses unchanged ID. Check no false acceptance, duplicate send or premature deletion.
-6. Navigate Back/Home/lock screen during recording and uploading; reopen from widget repeatedly. Recording must finalize on Stop; an in-process upload must remain locked. Kill the process mid-upload, reopen and explicitly retry the retained note; account for server dedupe limits.
-7. Interrupt capture abruptly: recover valid notes, otherwise retain unreadable file with blocked capture until Discard. Rotate in recording/review/upload states.
-8. Exercise five-minute capture bound, small-screen scrolling, large fonts, accessibility and narrow widget cells. No phone behavior is claimed from the build alone.
+## Phone checklist (pending for this build)
+
+1. Install Android 8/API 26+ with existing private config/VPN. Check unchanged text focus/Send and icons.
+2. Tap widget/composer mic repeatedly: each opens fresh recording, including after acceptance and after an older failed note. Grant/deny permission. Waveform follows actual audio.
+3. Speak and tap Send without Pause: finalize, upload, then auto-exit only after matching acceptance; verify one reply in the intended Discord DM.
+4. Pause/resume and optional saved playback still work. Screen stays lit during recording and foreground upload, but not paused/idle or background.
+5. Offline/timeout/invalid receipt: remain on the same note, retry same ID. A second mic tap leaves old files intact and creates independent audio/identity.
+6. Launch a new capture while an older upload is running; its later acceptance/failure must not close/change/discard the new capture.
+7. Home/Back/lock/rotate/process death: no background microphone; readable finalized audio or unreadable audio remains retained. Recreate a task to verify same-note recovery. No automatic replay after process death.
+8. Verify five-minute limit, narrow cells, large text and accessibility on a real device.
 
 ## Deferred
 
-Automatic durable background outbox, multiple simultaneous notes/profiles, in-app replies and export are not implemented. No background recording; voice data stays private apart from explicit authenticated Send.
+History/recovery browser, aggregate storage management, durable background outbox, profiles, in-app replies and export are not implemented.

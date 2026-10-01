@@ -18,7 +18,7 @@ class RecorderSafetyTest {
         val send = session.substringAfter("fun send()").substringBefore("fun background()")
         assertTrue(send.indexOf("finish()") < send.indexOf("upload = upload.begin()"))
         assertTrue(send.contains("noteStore.markAccepted(requestId)"))
-        assertTrue(source("voice/RecorderActivity.kt").contains("VoiceSession.get(applicationContext)"))
+        assertTrue(source("voice/RecorderActivity.kt").contains("VoiceSession.fresh(applicationContext)"))
         assertTrue(session.substringAfter("fun discard()").contains("if (upload.controlsLocked) return"))
     }
 
@@ -45,7 +45,7 @@ class RecorderSafetyTest {
         val route = main.substringAfter("private fun route(").substringBefore("companion object")
         assertFalse("Only the composer click may launch recorder", route.contains("RecorderActivity"))
         assertTrue(main.contains("onVoice ="))
-        assertTrue(source("widget/CordletWidget.kt").contains("RecorderActivity::class.java"))
+        assertTrue(source("widget/WidgetVoiceLaunchActivity.kt").contains("RecorderActivity.captureIntent(this)"))
     }
 
     @Test fun waveformUsesRealSamplesAndResetsOnNewRecordingAndDiscard() {

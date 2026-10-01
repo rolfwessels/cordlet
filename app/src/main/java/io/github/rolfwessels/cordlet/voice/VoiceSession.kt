@@ -1,6 +1,8 @@
 package io.github.rolfwessels.cordlet.voice
 
 import android.content.Context
+import android.Manifest
+import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
 import android.media.MediaRecorder
@@ -16,16 +18,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/** Main-thread, single-owner recorder. One private note, bounded to five active minutes. */
-class VoiceSession private constructor(private val context: Context) {
+/** Each capture owns its private audio, identity and detached upload independently. */
+class VoiceSession private constructor(private val context: Context, val sessionId: String) {
     companion object {
-        private var instance: VoiceSession? = null
-        // Application owner survives activity destruction while upload is in flight.
-        fun get(context: Context): VoiceSession = instance ?: VoiceSession(context.applicationContext).also { instance = it }
+        private val sessions = mutableMapOf<String, VoiceSession>()
+        fun fresh(context: Context): VoiceSession = restore(context, newCaptureId())
+        // Restore only an explicitly named activity session, never the latest historical note.
+        fun restore(context: Context, sessionId: String): VoiceSession {
+            require(sessionId.matches(Regex("[A-Za-z0-9_-]{1,80}")))
+            return sessions.getOrPut(sessionId) { VoiceSession(context.applicationContext, sessionId) }
+        }
     }
     private val directory = File(context.filesDir, "voice").apply { mkdirs() }
-    private val file = File(directory, "latest.m4a")
-    private val identityFile = File(directory, "latest.properties")
+    private val file = File(directory, "$sessionId.m4a")
+    private val identityFile = File(directory, "$sessionId.properties")
     private val noteStore = NoteRequestStore(identityFile)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     var upload by mutableStateOf(VoiceUploadState()); private set
@@ -102,7 +108,7 @@ class VoiceSession private constructor(private val context: Context) {
             phase = transition(phase, VoiceEvent.START)
             elapsed = 0
             history = history.reset()
-            message = "Pause to review · up to 5 minutes"
+            message = "Tap Send when ready · up to 5 minutes"
         } catch (_: Exception) { failRecorder("Could not start microphone. Check permission and try again.") }
     }
 
@@ -214,8 +220,13 @@ class VoiceSession private constructor(private val context: Context) {
         message = "Recording discarded"
     }
 
+    val canSend: Boolean get() = canSendCapture(phase, upload,
+        PrivateConfigStore(context).load() != null,
+        context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
+        if (phase == VoicePhase.RECORDING) clock.elapsed(now()) else elapsed)
+
     fun send() {
-        if (!upload.canSend(phase)) return
+        if (!canSend) return
         finish() // MPEG-4 must be finalized before the first byte is read.
         if (phase != VoicePhase.SAVED || !upload.canSend(phase)) return
         stopPlayback()
@@ -243,6 +254,6 @@ class VoiceSession private constructor(private val context: Context) {
         }
     }
 
-    fun background() { pause(); stopPlayback() }
+    fun background() { finish(); stopPlayback() }
     fun close() { stopPlayback(); finish() }
 }

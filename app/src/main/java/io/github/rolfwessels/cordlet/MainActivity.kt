@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         route(intent)
         setContent { CordletApp(autoFocus = focus, focusLaunchId = launchId, onVoice = {
-            startActivity(Intent(this, RecorderActivity::class.java))
+            startActivity(RecorderActivity.captureIntent(this))
         }) }
     }
 

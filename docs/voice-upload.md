@@ -28,8 +28,8 @@ Install the updated plugin and restart the gateway using `server/README.md`. A d
 - Independent server security/logic review found no blocking defects.
 - First live attempt before the restarted gateway was loaded returned 413; later live audio request returned **HTTP 202 with matching ID** for `cordlet-voice-proof-c68d35e19f324b22b29f42e9ea793f51`.
 - The corresponding transcribed clip arrived as a separate input in the existing DM and Wren replied **“Voice Note Received.”** This closes the host-originated audio → local STT → same-DM reply proof.
-- Android Send is implemented and the `0.4.0-voice-send` APK built. **83 Android tests passed**, lint passed with no errors; independent client review is pending at this checkpoint.
-- Installed-phone voice upload/reply and upload lifecycle checks still require the user's device proof.
+- Quick-capture correction built as `0.4.1-quickvoice` / code 6. **93 Android tests passed** (0 failures/errors/skips), XML preserved before build snapshot replacement; `make lint` and `make run` passed. Parent review is pending.
+- The user supplied a successful phone voice sample from the prior flow. Fresh sessions, one-tap recording Send, screen-awake behavior, detached upload isolation and auto-exit in this corrected APK remain pending device checks; see `voice-ux-next.md`.
 
 ## Phone acceptance checklist
 

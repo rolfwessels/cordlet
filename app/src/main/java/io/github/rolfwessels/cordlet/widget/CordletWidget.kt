@@ -13,6 +13,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.provideContent
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.actionStartActivity
+
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -31,7 +32,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import io.github.rolfwessels.cordlet.MainActivity
 import io.github.rolfwessels.cordlet.R
-import io.github.rolfwessels.cordlet.voice.RecorderActivity
+
 
 /** Separate focused-text and local-recorder launch shortcuts. */
 class CordletWidget : GlanceAppWidget() {
@@ -44,7 +45,7 @@ class CordletWidget : GlanceAppWidget() {
 private fun CordletWidgetContent() {
     val context = LocalContext.current
     val openApp = actionStartActivity(Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_FOCUS_COMPOSER, true))
-    val openVoice = actionStartActivity(Intent(context, RecorderActivity::class.java))
+    val openVoice = actionStartActivity(Intent(context, WidgetVoiceLaunchActivity::class.java))
     // The launcher may allocate a taller cell than requested. Keep the artwork
     // at its content height rather than stretching the panel to fill that cell.
     Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
