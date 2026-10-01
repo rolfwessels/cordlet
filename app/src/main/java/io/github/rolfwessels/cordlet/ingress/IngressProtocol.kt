@@ -4,7 +4,7 @@ import java.net.URI
 import java.util.UUID
 
 const val DEFAULT_ENDPOINT = "http://hermes.bot.sels.co.za/cordlet/messages"
-data class IngressConfig(val endpoint: String, val token: String)
+data class IngressConfig(val endpoint: String, val token: String, val botName: String = "Hermes", val botIconBase64: String? = null)
 data class PreparedMessage(val endpoint: String, val authorization: String, val requestId: String, val text: String, val body: String)
 data class RequestIdentity(val text: String = "", val requestId: String = UUID.randomUUID().toString()) {
     fun edited(value: String): RequestIdentity = if (value == text) this else RequestIdentity(value)
@@ -14,6 +14,8 @@ fun validateConfig(config: IngressConfig) {
     val uri = try { URI(config.endpoint) } catch (_: Exception) { throw IllegalArgumentException("Invalid ingress endpoint") }
     require(uri.host != null && uri.userInfo == null && uri.fragment == null && uri.query == null && uri.path == "/cordlet/messages") { "Invalid ingress endpoint" }
     require(uri.scheme == "https" || config.endpoint == DEFAULT_ENDPOINT) { "HTTP is permitted only for the private Hermes hostname" }
+    config.botIconBase64?.let(::decodeBotIconBytes)
+    require(config.botName.isNotBlank() && config.botName.length <= 64 && config.botName.none { Character.isISOControl(it) }) { "Invalid bot name: use 1–64 characters without controls" }
     require(config.token.isNotBlank() && config.token.length <= 4096 && config.token.all { it.code in 33..126 }) { "Invalid device token" }
 }
 private fun quote(value: String): String = buildString {

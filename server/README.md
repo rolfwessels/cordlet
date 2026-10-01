@@ -101,7 +101,8 @@ To rotate the device key, update the private server file, restart the gateway an
 - 403: fix authorization of the configured owner, not a global auth bypass.
 - 503: inspect gateway adapter/admission logs with credentials redacted.
 - Acceptance is not completion; model execution or Discord delivery can fail afterward. There is no delivery-status API.
-- Deduplication is process-local, bounded to 512 accepted IDs and lost on restart/eviction. No durable exactly-once guarantee or durable background Android outbox.
+- Deduplication is process-local, bounded to 512 receipt states (accepted, echoed/not admitted, or uncertain) and lost on restart/eviction. No durable exactly-once guarantee or durable background Android outbox.
+- Voice uploads now post a bot-generated, quoted automatic transcript to the fixed DM before dispatch. This is not a Discord-native user voice bubble; text requests do not echo. `voice_echo_uncertain` / `voice_admission_uncertain` return 503 and unchanged retries deliberately do not repeat potentially completed side effects. Reconcile in the DM before any new-ID retry. See [`../docs/voice-upload.md`](../docs/voice-upload.md) for chunking and recovery semantics. Updating this behavior requires copying the plugin and restarting the gateway; no Android rebuild is needed.
 - No custom rate limiting; keep private and use manual sends. Hardening is future work.
 - Android import/basic send was tested on the user's phone; offline retries, all widget/launcher behavior and upgrade compatibility are not universally verified.
 

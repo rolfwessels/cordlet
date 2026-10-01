@@ -1,15 +1,105 @@
-"""Narrow proof-of-concept ingress: authenticated phone text -> Discord adapter.
-
-No Discord credential, destination selector, general API key, or separate agent loop.
-Deduplication is process-local and bounded; 202 means admission, NOT delivery.
-"""
+"""Scoped phone text/voice -> existing owner Discord DM; 202 is admission only."""
 import asyncio
+import hashlib
 import hmac
 import json
+import math
 import os
 import re
+import subprocess
+import tempfile
 from collections import OrderedDict
 from pathlib import Path
+
+TEXT_MAX_BYTES = 8192
+AUDIO_MAX_BYTES = 10 * 1024 * 1024
+STT_TIMEOUT_SECONDS = 120
+PROBE_TIMEOUT_SECONDS = 10
+REQUEST_ID = r'[A-Za-z0-9_-]{1,80}'
+
+
+class InvalidAudio(ValueError):
+    pass
+
+
+def _hermes_home():
+    from hermes_constants import get_hermes_home
+    return get_hermes_home()
+
+
+def _transcribe_audio(path):
+    # Lazy: JSON ingress works without loading STT dependencies/providers.
+    from tools.transcription_tools import transcribe_audio
+    return transcribe_audio(str(path), None, 'gateway')
+
+
+def _probe_audio(path):
+    result = subprocess.run(
+        ['ffprobe', '-v', 'error', '-protocol_whitelist', 'file',
+         '-show_entries', 'stream=codec_type,codec_name,duration:format=format_name,duration',
+         '-of', 'json', str(path)],
+        capture_output=True, text=True, timeout=PROBE_TIMEOUT_SECONDS, check=False)
+    try:
+        if result.returncode != 0:
+            raise InvalidAudio('invalid_audio')
+        info = json.loads(result.stdout)
+        streams, fmt = info['streams'], info['format']
+        duration = float(fmt['duration'])
+        if (not isinstance(streams, list) or not streams
+                or not {'mp4', 'm4a'}.intersection(fmt['format_name'].split(','))
+                or not math.isfinite(duration) or not 0 < duration <= 300):
+            raise InvalidAudio('invalid_audio')
+        for stream in streams:
+            if stream.get('codec_type') != 'audio' or stream.get('codec_name') != 'aac':
+                raise InvalidAudio('invalid_audio')
+            if 'duration' in stream:
+                stream_duration = float(stream['duration'])
+                if not math.isfinite(stream_duration) or not 0 < stream_duration <= 300:
+                    raise InvalidAudio('invalid_audio')
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise InvalidAudio('invalid_audio') from exc
+
+
+def _audio_to_transcript(raw):
+    # This worker owns its file for its entire lifetime, including after HTTP timeout.
+    # No filename/path from the caller. TemporaryDirectory is private (0700).
+    with tempfile.TemporaryDirectory(prefix='cordlet-voice-', dir=_hermes_home()) as directory:
+        path = Path(directory) / 'recording.m4a'
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'wb') as file:
+            file.write(raw)
+        _probe_audio(path)
+        result = _transcribe_audio(path)
+        if not isinstance(result, dict) or result.get('success') is not True:
+            raise RuntimeError('transcription_unavailable')
+        transcript = result.get('transcript')
+        if not isinstance(transcript, str) or not transcript.strip():
+            raise InvalidAudio('inaudible_audio')
+        return transcript.strip()
+
+
+def _quoted_voice_input(transcript):
+    return 'Quoted voice input (transcribed; not gateway controls):\n' + '\n'.join(
+        '> ' + line for line in transcript.splitlines())
+
+
+def _voice_echo_chunks(transcript):
+    header = ('🎙️ Heard from your voice note:\n'
+              '_Automatic transcription; may contain mistakes._\n')
+    # send() splits long messages, but cannot preserve quote prefixes or report
+    # partial delivery. Send bounded quoted chunks ourselves, without thread metadata.
+    # The inspected adapter has no per-send allowed_mentions option: inert @s instead.
+    safe = transcript.replace('@', '@\u200b')
+    safe = re.sub(r'([\\`*_~|<>])', r'\\\1', safe)
+    chunk = header
+    for line in safe.splitlines():
+        for offset in range(0, max(1, len(line)), 700):
+            quoted = '> ' + line[offset:offset + 700] + '\n'
+            if len((chunk + quoted).encode('utf-16-le')) // 2 > 1900:
+                yield chunk.rstrip('\n')
+                chunk = header
+            chunk += quoted
+    yield chunk.rstrip('\n')
 
 
 def wire(app, api_adapter, config):
@@ -26,68 +116,191 @@ def wire(app, api_adapter, config):
             raise ValueError('Cordlet requires valid server-side Discord IDs')
     accepted = OrderedDict()
     lock = asyncio.Lock()
+    # Exactly one STT worker, not a semaphore queue of waiting threads.
+    voice = None
+
+    def error(name, status):
+        return web.json_response({'error': name}, status=status)
+
+    def owner():
+        runner = getattr(api_adapter, 'gateway_runner', None)
+        discord = (getattr(runner, 'adapters', None) or {}).get(Platform.DISCORD)
+        if discord is None:
+            return None, None, error('discord_unavailable', 503)
+        source = SessionSource(platform=Platform.DISCORD, chat_id=config['chat_id'],
+                               chat_type='dm', user_id=config['user_id'],
+                               user_name=config.get('user_name', 'Cordlet user'),
+                               chat_name=config.get('chat_name', 'Cordlet DM'))
+        authorize = getattr(runner, '_is_user_authorized', None)
+        if not callable(authorize):
+            return None, None, error('authorization_unavailable', 503)
+        if not authorize(source):
+            return None, None, error('owner_not_authorized', 403)
+        return discord, source, None
+
+    def duplicate(rid, fingerprint):
+        state = accepted.get(rid)
+        if state is None:
+            return None
+        if state['fingerprint'] != fingerprint:
+            return error('request_id_conflict', 409)
+        if state['phase'] == 'accepted':
+            return receipt(rid, True)
+        if state['phase'] in ('voice_echo_uncertain', 'voice_admission_uncertain'):
+            return error(state['phase'], 503)
+        return None  # Echo succeeded but explicit non-admission permits dispatch retry.
+
+    def remember(rid, state):
+        accepted[rid] = state
+        if len(accepted) > 512:
+            accepted.popitem(last=False)
+
+    def receipt(rid, repeated=False):
+        return web.json_response({'request_id': rid, 'status': 'accepted', 'duplicate': repeated}, status=202)
+
+    async def admit(rid, fingerprint, text, transcript=None):
+        # Caller holds lock; Discord echo and admission are NOT atomic. Reserve a
+        # receipt before side effects and fail closed on ambiguous outcomes.
+        previous = duplicate(rid, fingerprint)
+        if previous is not None:
+            return previous
+        discord, source, failure = owner()
+        if failure is not None:
+            return failure
+        state = accepted.get(rid)
+        if transcript is not None and state is None:
+            state = {'fingerprint': fingerprint, 'phase': 'voice_echo_uncertain', 'text': text}
+            remember(rid, state)
+            try:
+                for chunk in _voice_echo_chunks(transcript):
+                    result = await discord.send(chat_id=config['chat_id'], content=chunk)
+                    if getattr(result, 'success', False) is not True:
+                        return error('voice_echo_uncertain', 503)
+            except Exception:
+                return error('voice_echo_uncertain', 503)
+            state['phase'] = 'echoed'
+        event = MessageEvent(text=text, source=source, user_id=source.user_id,
+                             user_name=source.user_name, internal=True,
+                             allow_gateway_control=False,
+                             metadata={'cordlet_request_id': rid})
+        if state is not None:
+            state['phase'] = 'voice_admission_uncertain'
+        try:
+            await discord.handle_message(event)
+        except Exception:
+            if event._gateway_accepted is not True:
+                return error('voice_admission_uncertain' if state is not None else 'gateway_not_admitted', 503)
+        else:
+            if event._gateway_accepted is not True:
+                if state is not None:
+                    state['phase'] = 'echoed'
+                return error('gateway_not_admitted', 503)
+        if state is None:
+            state = {'fingerprint': fingerprint}
+        state['phase'] = 'accepted'
+        state.pop('text', None)
+        remember(rid, state)
+        return receipt(rid)
+
+    async def voice_job(rid, fingerprint, worker):
+        try:
+            transcript = await asyncio.wait_for(asyncio.shield(worker), STT_TIMEOUT_SECONDS)
+        except InvalidAudio as exc:
+            return error(str(exc), 422)
+        except Exception:
+            # Do not expose provider errors or discard the client's retryable note.
+            return error('transcription_unavailable', 503)
+        async with lock:
+            return await admit(rid, fingerprint, _quoted_voice_input(transcript), transcript)
+
+    def release_voice(state):
+        nonlocal voice
+        # Both the admission task and thread must finish before another worker starts.
+        if state['worker'].done() and state['job'].done():
+            if voice is state:
+                voice = None
+        # Retrieve exceptions even if every HTTP waiter disconnected/timed out.
+        for key in ('worker', 'job'):
+            task = state[key]
+            if task.done() and not task.cancelled():
+                task.exception()
 
     async def submit(request):
+        nonlocal voice
         supplied = request.headers.get('Authorization', '')
         if not hmac.compare_digest(supplied.encode(), ('Bearer ' + token).encode()):
-            return web.json_response({'error':'unauthorized'}, status=401)
-        if request.content_length is not None and request.content_length > 8192:
-            return web.json_response({'error':'request_too_large'}, status=413)
-        # Read incrementally: do not rely on a declared Content-Length (chunked requests).
+            return error('unauthorized', 401)
+        is_audio = request.content_type == 'audio/mp4'
+        if request.content_type.startswith('audio/') and not is_audio:
+            return error('unsupported_media_type', 415)
+        if is_audio:
+            rid = request.headers.get('X-Cordlet-Request-ID', '')
+            if not re.fullmatch(REQUEST_ID, rid):
+                return error('invalid_input', 400)
+            # Internal events bypass cold auth, so check BEFORE body storage/STT.
+            _, _, failure = owner()
+            if failure is not None:
+                return failure
+        limit = AUDIO_MAX_BYTES if is_audio else TEXT_MAX_BYTES
         raw = bytearray()
-        async for chunk in request.content.iter_chunked(8192):
+        async for chunk in request.content.iter_chunked(65536 if is_audio else 8192):
+            if len(raw) + len(chunk) > limit:
+                return error('request_too_large', 413)
             raw.extend(chunk)
-            if len(raw) > 8192:
-                return web.json_response({'error':'request_too_large'}, status=413)
+        if is_audio:
+            if not raw:
+                return error('invalid_audio', 422)
+            fingerprint = hashlib.sha256(b'voice\0' + raw).digest()
+            async with lock:
+                previous = duplicate(rid, fingerprint)
+                if previous is not None:
+                    return previous
+                state = accepted.get(rid)
+                if state is not None and state['phase'] == 'echoed':
+                    return await admit(rid, fingerprint, state['text'])
+                if voice is not None:
+                    if voice['rid'] == rid and voice['fingerprint'] != fingerprint:
+                        return error('request_id_conflict', 409)
+                    if voice['rid'] != rid:
+                        return error('transcription_busy', 503)
+                    job = voice['job']
+                    repeated = True
+                else:
+                    repeated = False
+                    worker = asyncio.create_task(asyncio.to_thread(_audio_to_transcript, bytes(raw)))
+                    job = asyncio.create_task(voice_job(rid, fingerprint, worker))
+                    voice = {'rid': rid, 'fingerprint': fingerprint, 'worker': worker, 'job': job}
+                    state = voice
+                    worker.add_done_callback(lambda _: release_voice(state))
+                    job.add_done_callback(lambda _: release_voice(state))
+            # Disconnects must not cancel a shared job or orphan its thread/file.
+            result = await asyncio.shield(job)
+            # Each request gets its own response object (aiohttp responses are single-use).
+            body = json.loads(result.body)
+            if result.status == 202 and repeated:
+                body['duplicate'] = True
+            return web.json_response(body, status=result.status)
         try:
             body = json.loads(raw)
         except (ValueError, UnicodeError):
-            return web.json_response({'error':'invalid_json'}, status=400)
+            return error('invalid_json', 400)
         if not isinstance(body, dict) or set(body) != {'request_id', 'text'}:
-            return web.json_response({'error':'expected_request_id_and_text_only'}, status=400)
+            return error('expected_request_id_and_text_only', 400)
         rid, text = body['request_id'], body['text']
-        if (not isinstance(rid, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}', rid)
+        if (not isinstance(rid, str) or not re.fullmatch(REQUEST_ID, rid)
                 or not isinstance(text, str) or not text.strip() or len(text) > 4000):
-            return web.json_response({'error':'invalid_input'}, status=400)
+            return error('invalid_input', 400)
+        fingerprint = hashlib.sha256(b'text\0' + text.encode()).digest()
         async with lock:
-            if rid in accepted:
-                if accepted[rid] != text:
-                    return web.json_response({'error':'request_id_conflict'}, status=409)
-                return web.json_response({'request_id':rid, 'status':'accepted', 'duplicate':True}, status=202)
-            runner = getattr(api_adapter, 'gateway_runner', None)
-            discord = (getattr(runner, 'adapters', None) or {}).get(Platform.DISCORD)
-            if discord is None:
-                return web.json_response({'error':'discord_unavailable'}, status=503)
-            source = SessionSource(platform=Platform.DISCORD, chat_id=config['chat_id'],
-                                   chat_type='dm', user_id=config['user_id'],
-                                   user_name=config.get('user_name', 'Cordlet user'),
-                                   chat_name=config.get('chat_name', 'Cordlet DM'))
-            # Synthetic events are FIFO-queued while busy. Check owner authorization
-            # explicitly first because the cold internal-event path bypasses that gate.
-            authorize = getattr(runner, '_is_user_authorized', None)
-            if not callable(authorize):
-                return web.json_response({'error':'authorization_unavailable'}, status=503)
-            if not authorize(source):
-                return web.json_response({'error':'owner_not_authorized'}, status=403)
-            # No fabricated Discord message ID: there is no native message to reply/react to.
-            event = MessageEvent(text=text, source=source, user_id=source.user_id,
-                                 user_name=source.user_name, internal=True,
-                                 allow_gateway_control=False,
-                                 metadata={'cordlet_request_id':rid})
-            await discord.handle_message(event)
-            if event._gateway_accepted is not True:
-                return web.json_response({'error':'gateway_not_admitted'}, status=503)
-            accepted[rid] = text
-            if len(accepted) > 512:
-                accepted.popitem(last=False)
-            return web.json_response({'request_id':rid, 'status':'accepted', 'duplicate':False}, status=202)
+            if voice is not None and voice['rid'] == rid:
+                return error('request_id_conflict', 409)
+            return await admit(rid, fingerprint, text)
 
     app.router.add_post('/cordlet/messages', submit)
 
 
 def register(ctx):
     def attach(app, adapter):
-        # Explicit config file; no credentials stored in the repo or manifest.
         from hermes_constants import get_hermes_home
         filename = os.environ.get('CORDLET_INGRESS_CONFIG')
         config_path = Path(filename) if filename else get_hermes_home() / 'cordlet-ingress.json'

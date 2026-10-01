@@ -14,9 +14,9 @@ class WidgetArtworkTest {
     @Test fun panelHasRoundedOutlineAndDarkFill() {
         val shape = xml("cordlet_widget_panel.xml").documentElement
         assertEquals("shape", shape.tagName)
-        assertEquals("#181D27", shape.getElementsByTagName("solid").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue)
+        assertEquals("#181D27", resolveColor(shape.getElementsByTagName("solid").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue))
         assertEquals("16dp", shape.getElementsByTagName("corners").item(0).attributes.getNamedItemNS(androidNs, "radius").nodeValue)
-        assertEquals("#2A3140", shape.getElementsByTagName("stroke").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue)
+        assertEquals("#2A3140", resolveColor(shape.getElementsByTagName("stroke").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue))
     }
 
     @Test fun microphoneIsAVectorGlyphNotAnEmoji() {
@@ -24,6 +24,21 @@ class WidgetArtworkTest {
         assertEquals("vector", vector.tagName)
         assertTrue(vector.getElementsByTagName("path").length > 0)
         assertEquals("20dp", vector.getAttributeNS(androidNs, "width"))
+    }
+
+    @Test fun widgetUsesSharedPaletteResources() {
+        val panel = xml("cordlet_widget_panel.xml").documentElement
+        assertEquals("@color/cordlet_panel", panel.getElementsByTagName("solid").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue)
+        assertEquals("@color/cordlet_border", panel.getElementsByTagName("stroke").item(0).attributes.getNamedItemNS(androidNs, "color").nodeValue)
+    }
+
+    private fun resolveColor(value: String): String {
+        if (!value.startsWith("@color/")) return value
+        val colors = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(File("src/main/res/values/colors.xml")).getElementsByTagName("color")
+        return (0 until colors.length).map { colors.item(it) }.first {
+            it.attributes.getNamedItem("name").nodeValue == value.removePrefix("@color/")
+        }.textContent
     }
 
     private fun xml(name: String) = DocumentBuilderFactory.newInstance().apply {

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cordlet_background">#0B0E14</color>
+    <color name="cordlet_panel">#181D27</color>
+    <color name="cordlet_inset">#0F131A</color>
+    <color name="cordlet_mint">#32D3A4</color>
+    <color name="cordlet_ink">#07110E</color>
+    <color name="cordlet_text">#F6F8FB</color>
+    <color name="cordlet_muted">#ADB4C0</color>
+    <color name="cordlet_border">#2A3140</color>
+    <color name="cordlet_secondary">#8EAEE8</color>
+    <color name="cordlet_error">#FF5F74</color>
+</resources>

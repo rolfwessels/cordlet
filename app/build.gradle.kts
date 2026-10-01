@@ -12,8 +12,8 @@ android {
         applicationId = "io.github.rolfwessels.cordlet"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0-private-ingress"
+        versionCode = 6
+        versionName = "0.4.1-quickvoice"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

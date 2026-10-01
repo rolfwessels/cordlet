@@ -32,13 +32,14 @@ import io.github.rolfwessels.cordlet.ingress.PrivateConfigStore
 import io.github.rolfwessels.cordlet.ingress.RequestIdentity
 import io.github.rolfwessels.cordlet.ingress.SendOutcome
 import io.github.rolfwessels.cordlet.ui.theme.CordletBackground
+import io.github.rolfwessels.cordlet.ui.theme.CordletMuted
 import io.github.rolfwessels.cordlet.ui.theme.CordletTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun CordletApp(autoFocus: Boolean = false) {
+fun CordletApp(autoFocus: Boolean = false, focusLaunchId: Int = 0, onVoice: () -> Unit = {}) {
     var composer by rememberSaveable(stateSaver = listSaver(
         save = { listOf(it.message, it.microphonePressed.toString()) },
         restore = { ComposerState(it[0], it[1].toBoolean()) },
@@ -67,7 +68,7 @@ fun CordletApp(autoFocus: Boolean = false) {
             } finally { importing = false }
         }
     }
-    LaunchedEffect(autoFocus) {
+    LaunchedEffect(autoFocus, focusLaunchId) {
         if (autoFocus) {
             focusRequester.requestFocus()
             keyboard?.show()
@@ -80,6 +81,7 @@ fun CordletApp(autoFocus: Boolean = false) {
             contentAlignment = Alignment.Center,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                BotIdentity(config?.botName ?: "Hermes", config?.botIconBase64)
                 UtilityStrip(
                     state = composer,
                     onMessageChange = {
@@ -87,7 +89,7 @@ fun CordletApp(autoFocus: Boolean = false) {
                         request = request.edited(it)
                         status = ""
                     },
-                    onMicrophoneClick = { composer = composer.toggleMicrophonePressed() },
+                    onMicrophoneClick = onVoice,
                     focusRequester = focusRequester,
                     sending = sending,
                     onSendClick = {
@@ -117,7 +119,7 @@ fun CordletApp(autoFocus: Boolean = false) {
                 TextButton(enabled = !sending && !importing, onClick = {
                     importer.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
                 }) { Text(if (config == null) "Import private config" else "Replace private config") }
-                if (status.isNotEmpty()) Text(status, color = Color(0xFFADB4C0))
+                if (status.isNotEmpty()) Text(status, color = CordletMuted)
             }
         }
     }
