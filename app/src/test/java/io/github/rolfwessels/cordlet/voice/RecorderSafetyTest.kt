@@ -7,6 +7,21 @@ import org.junit.Test
 
 /** Source/manifest guards for Android lifecycle and intent wiring unavailable in JVM tests. */
 class RecorderSafetyTest {
+    @Test fun orphanIdentityRequiresExplicitDiscardBeforeNewCapture() {
+        val session = source("voice/VoiceSession.kt")
+        val recovery = session.substringAfter("private fun recover()").substringBefore("@Suppress")
+        assertTrue(recovery.contains("file.exists() || identityFile.exists()"))
+        assertTrue(session.contains("private val identityFile"))
+    }
+    @Test fun sendingFinalizesAndOwnsUploadAcrossActivityRecreation() {
+        val session = source("voice/VoiceSession.kt")
+        val send = session.substringAfter("fun send()").substringBefore("fun background()")
+        assertTrue(send.indexOf("finish()") < send.indexOf("upload = upload.begin()"))
+        assertTrue(send.contains("noteStore.markAccepted(requestId)"))
+        assertTrue(source("voice/RecorderActivity.kt").contains("VoiceSession.get(applicationContext)"))
+        assertTrue(session.substringAfter("fun discard()").contains("if (upload.controlsLocked) return"))
+    }
+
     private fun source(name: String) = File("src/main/java/io/github/rolfwessels/cordlet/$name").readText()
 
     @Test fun stoppedActivityFinalizesBeforeProcessCanBeKilled() {

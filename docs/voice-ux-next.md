@@ -1,32 +1,31 @@
-# Voice recorder milestone
+# Voice recording and Send milestone
 
-## Implemented scope (`feature/voice-recorder`)
+## Current scope (`feature/voice-recorder`, 0.4.0-voice-send / code 5)
 
-The widget text region still opens the focused text composer. The widget mic and empty composer mic open a separate recorder activity. Existing private-ingress text sending is unchanged.
+The widget text region opens the focused text composer; text sending is unchanged. Both mic actions open the non-exported recorder. Imported bot name/offline icon and the real multi-bar amplitude waveform are preserved.
 
-- Microphone permission is requested on first recorder entry; recording starts only when permission is granted and the activity is visible. Denial leaves a retry instruction; permanently denied permission requires Android app settings.
-- Record AAC audio in an M4A file at `files/voice/latest.m4a` in app-private storage. Only one note is retained; no storage permission, export, or background recording service is provided. App data clearing/uninstall removes it, and app backup is disabled.
-- Show recording/paused/saved state, an active-time timer, and a microphone meter based on sampled `MediaRecorder.maxAmplitude` (not a decorative waveform).
-- Pause/resume, Finish & review, play/stop playback and Discard are available. Recording is limited to five active minutes and 4 MiB; paused time does not count in the app timer.
-- Losing foreground pauses capture immediately and stops playback; `onStop` finalizes and releases the recorder before background process death can occur. Returning opens saved review, not a resumable recording. Reopening recovers a valid saved note rather than automatically overwriting it. Rotation and repeat widget taps retain the current recorder session. Abrupt process death before finalization is best-effort recovery, not a guarantee: unreadable audio stays on disk in a blocked error state, requiring explicit Discard before a new recording. The exported text activity ignores voice launch extras; widget/composer actions directly launch the non-exported recorder.
-- **Send is disabled and labeled “Audio upload not available yet.”** No audio upload, transcription, sending progress, or voice delivery to Wren is implemented. Text networking remains available separately; “local-only” applies to recorded audio, not the whole app.
-- Compose and widget artwork/text share resource colors. Browser sketches are illustrations, not physical-phone screenshots.
+- Permission-gated foreground AAC/M4A capture in app-private `files/voice/latest.m4a`; five active minutes and 4 MiB capture limit. Pause/resume, Finish & review, playback and explicit Discard remain available. No storage permission or recording service.
+- Leaving foreground pauses capture/stops playback; `onStop` finalizes MPEG-4. Saved audio is recovered after reopening. Unreadable audio/metadata is blocked and kept until explicit Discard. No automatic overwrite.
+- Send from paused or saved review finalizes the recorder before reading bytes. Raw fixed-length streamed POST goes to the existing imported `/cordlet/messages` endpoint with bearer authentication, `audio/mp4`, and `X-Cordlet-Request-ID`; no multipart/base64/alternate endpoint. Client request bound is 10 MiB, response bound 8192 bytes, connect timeout 10 seconds and read timeout 180 seconds. Redirects are refused.
+- Atomic synced private `latest.properties` stores the stable per-note identity and accepted flag. Failures keep file and ID; a matching HTTP 202 accepted receipt is the only success. Acceptance is persisted, disables repeat Send, and keeps audio for playback until Discard. Only Discard permits a new note/identity.
+- Uploading locks playback, Discard and repeat Send. A process-owned session/coroutine survives activity recreation/reopening, so another activity cannot overwrite an in-flight file. Process death stops work; reopening recovers the same note/ID without auto-upload. Retry after uncertain acceptance uses the same ID. Server deduplication is finite/process-local, so server restart/eviction is not an exactly-once guarantee.
+- Companion ingress transcribes before admission; acceptance means reply should be read in Discord, not that agent work/reply delivery has finished.
 
-## Physical-phone checklist (pending)
+## Verification
 
-Install the debug APK on Android 8.0/API 26 or newer. Build/lint/unit tests do not prove microphone, launcher, or lifecycle behavior on a real phone.
+JVM regression tests exercise request validation, exact receipts, durable identity/acceptance, failure retry identity, upload state and corrupt metadata. Source/manifest guards cover Android wiring, lifecycle finalization and streamed transport; they are not device instrumentation. Container lint/build and APK inspection must also pass. **Installed-phone voice capture, send, transcription/reply and process/lifecycle proof remain pending.** Prior text phone proof does not prove voice.
 
-1. Add the widget; check narrow and tall launcher cells. Tap its text area: confirm keyboard focus, typing and the existing text Send flow. With text present, the composer action should send text, not open the recorder.
-2. Tap the widget mic and empty composer mic: confirm both open the dedicated recorder. Grant microphone permission; verify actual capture, elapsed time and level response to speech/silence.
-3. Deny permission on a clean install, retry, and test permanent denial via Settings. Confirm a helpful message and no capture without permission.
-4. Pause, wait, resume and Finish & review. Check paused time is excluded, playback is audible, and Send remains disabled with the upload-unavailable label.
-5. Rotate during recording/paused/review states and tap the widget mic repeatedly. Confirm no duplicate recorder, reset, or accidental overwrite.
-6. Press Home, lock the screen and switch apps: capture must stop/finalize and playback must stop. Return to saved review, not Resume. Use Back to leave, reopen and confirm recoverable audio is kept.
-7. Force-stop after finishing a note, reopen, and play it. Separately interrupt active recording; expect only best-effort recovery and an honest error if unreadable. Verify saved and unreadable notes block automatic recording until explicit Discard; unreadable files must not be silently deleted or overwritten.
-8. Discard and reopen; confirm the note is gone and a new recording can start. Record to the five-minute limit; confirm automatic finalization and usable review.
-9. Enable airplane mode: record, pause, review and discard without importing private config. Voice must remain local and never report delivery. Re-enable the private VPN separately for the existing text-send proof.
-10. Check small-screen scrolling, large font size, accessibility labels and touch targets on the installed APK.
+## Phone checklist (pending)
 
-## Later, separately approved work
+1. Install on Android 8/API 26+ with existing private config/VPN. Check widget text focus and unchanged text Send; imported avatar/name still render.
+2. Grant/deny mic permission; verify waveform responds to speech, freezes on Pause, and elapsed excludes paused time. Finish and play audible recording.
+3. Send a short unique harmless voice note from Pause: capture must finalize, upload state lock controls and repeat taps, acceptance display only after matching receipt, and one expected reply appear in the intended Discord DM.
+4. After acceptance, reopen and force-stop/reopen: audio remains playable, Send remains disabled. Discard then record a new note.
+5. Offline/missing-config/timeout/invalid receipt: audio remains playable; retry uses unchanged ID. Check no false acceptance, duplicate send or premature deletion.
+6. Navigate Back/Home/lock screen during recording and uploading; reopen from widget repeatedly. Recording must finalize on Stop; an in-process upload must remain locked. Kill the process mid-upload, reopen and explicitly retry the retained note; account for server dedupe limits.
+7. Interrupt capture abruptly: recover valid notes, otherwise retain unreadable file with blocked capture until Discard. Rotate in recording/review/upload states.
+8. Exercise five-minute capture bound, small-screen scrolling, large fonts, accessibility and narrow widget cells. No phone behavior is claimed from the build alone.
 
-Voice upload, transcription, backend processing and delivery semantics remain undecided. Do not imply that the “Voice note to Wren” heading represents actual delivery. Choose and prove a transport before enabling Send; preserve the fast text-widget path.
+## Deferred
+
+Automatic durable background outbox, multiple simultaneous notes/profiles, in-app replies and export are not implemented. No background recording; voice data stays private apart from explicit authenticated Send.

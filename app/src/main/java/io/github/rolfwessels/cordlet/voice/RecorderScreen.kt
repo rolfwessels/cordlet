@@ -50,7 +50,7 @@ fun RecorderScreen(session: VoiceSession, botName: String = "Hermes", botIconBas
                     Text(when (session.phase) {
                         VoicePhase.RECORDING -> "● Recording"
                         VoicePhase.PAUSED -> "Paused"
-                        VoicePhase.SAVED -> "Saved locally"
+                        VoicePhase.SAVED -> if (session.upload.uploading) "Uploading…" else if (session.upload.accepted) "Accepted" else "Saved locally"
                         VoicePhase.ERROR -> "Recording unreadable · file kept"
                         VoicePhase.READY -> "Ready to record"
                     }, color = if (session.phase == VoicePhase.RECORDING) CordletMint else CordletText, fontSize = 14.sp)
@@ -77,7 +77,7 @@ fun RecorderScreen(session: VoiceSession, botName: String = "Hermes", botIconBas
                     TextButton(onClick = session::finish, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Finish & review", color = CordletSecondary) }
                 }
                 if (session.phase == VoicePhase.SAVED) {
-                    TextButton(onClick = session::play, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    TextButton(onClick = session::play, enabled = !session.upload.controlsLocked, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                         Text(if (session.playing) "Stop playback" else "Play recording", color = CordletSecondary)
                     }
                 }
@@ -101,11 +101,11 @@ fun RecorderScreen(session: VoiceSession, botName: String = "Hermes", botIconBas
                         VoicePhase.ERROR -> "Kept"
                     }, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Button(onClick = {}, enabled = false, modifier = Modifier.weight(1.4f).height(58.dp), contentPadding = PaddingValues(horizontal = 12.dp), shape = RoundedCornerShape(16.dp)) { Text("Send ↗", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                Button(onClick = session::send, enabled = session.upload.canSend(session.phase), modifier = Modifier.weight(1.4f).height(58.dp), contentPadding = PaddingValues(horizontal = 12.dp), shape = RoundedCornerShape(16.dp)) { Text(if (session.upload.uploading) "Uploading…" else if (session.upload.accepted) "Accepted" else "Send ↗", maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
             Spacer(Modifier.height(10.dp))
-            Text("Audio upload not available yet", color = CordletMuted, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-            TextButton(onClick = session::discard, enabled = session.phase != VoicePhase.READY, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text("Pause or finish to send · reply in Discord", color = CordletMuted, fontSize = 13.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+            TextButton(onClick = session::discard, enabled = session.phase != VoicePhase.READY && !session.upload.controlsLocked, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 Text("Discard recording", color = CordletMuted)
             }
         }

@@ -9,11 +9,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.io.File
+import io.github.rolfwessels.cordlet.ingress.PrivateConfigStore
+import io.github.rolfwessels.cordlet.ingress.SendOutcome
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /** Main-thread, single-owner recorder. One private note, bounded to five active minutes. */
-class VoiceSession(context: Context) {
+class VoiceSession private constructor(private val context: Context) {
+    companion object {
+        private var instance: VoiceSession? = null
+        // Application owner survives activity destruction while upload is in flight.
+        fun get(context: Context): VoiceSession = instance ?: VoiceSession(context.applicationContext).also { instance = it }
+    }
     private val directory = File(context.filesDir, "voice").apply { mkdirs() }
     private val file = File(directory, "latest.m4a")
+    private val identityFile = File(directory, "latest.properties")
+    private val noteStore = NoteRequestStore(identityFile)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    var upload by mutableStateOf(VoiceUploadState()); private set
     private var recorder: MediaRecorder? = null
     private var player: MediaPlayer? = null
     private var clock = VoiceClock()
@@ -41,8 +56,15 @@ class VoiceSession(context: Context) {
         if (savedDuration > 0) {
             phase = transition(phase, VoiceEvent.SAVE)
             elapsed = savedDuration
-            message = "Saved locally · recording kept"
-        } else if (file.exists()) {
+            try {
+                noteStore.identity()
+                upload = VoiceUploadState(accepted = noteStore.isAccepted())
+                message = if (upload.accepted) "Accepted; reply in Discord · recording kept until Discard" else "Saved locally · ready to send"
+            } catch (_: Exception) {
+                phase = VoicePhase.ERROR
+                message = "Recording identity unreadable; file kept. Discard explicitly before recording again."
+            }
+        } else if (file.exists() || identityFile.exists()) {
             phase = VoicePhase.ERROR
             elapsed = 0
             message = "Interrupted recording is unreadable; file kept locally. Discard explicitly before recording again."
@@ -51,10 +73,11 @@ class VoiceSession(context: Context) {
 
     @Suppress("DEPRECATION") // API 26 supported; newer Context constructor requires API 31.
     fun start() {
-        if (!canAutoStart(phase)) return
+        if (!canAutoStart(phase) || upload.controlsLocked) return
         stopPlayback()
         if (file.exists()) { recover(); return }
         try {
+            noteStore.identity()
             val created = MediaRecorder()
             recorder = created
             created.setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -138,7 +161,7 @@ class VoiceSession(context: Context) {
     }
 
     fun play() {
-        if (phase != VoicePhase.SAVED) return
+        if (phase != VoicePhase.SAVED || upload.controlsLocked) return
         if (playing) { stopPlayback(); return }
         try {
             val created = MediaPlayer()
@@ -165,6 +188,7 @@ class VoiceSession(context: Context) {
     fun permissionDenied() { message = "Microphone permission denied. Tap Start to retry; enable Microphone in app settings if blocked." }
 
     fun discard() {
+        if (upload.controlsLocked) return
         stopPlayback()
         val current = recorder
         recorder = null
@@ -176,12 +200,47 @@ class VoiceSession(context: Context) {
             message = "Could not delete recording. Try Discard again."
             return
         }
+        try { noteStore.discard() } catch (_: Exception) {
+            phase = VoicePhase.ERROR
+            message = "Could not discard recording identity. Try Discard again."
+            return
+        }
+        upload = VoiceUploadState()
         phase = transition(phase, VoiceEvent.DISCARD)
         clock = VoiceClock()
         elapsed = 0
         level = 0f
         history = history.reset()
         message = "Recording discarded"
+    }
+
+    fun send() {
+        if (!upload.canSend(phase)) return
+        finish() // MPEG-4 must be finalized before the first byte is read.
+        if (phase != VoicePhase.SAVED || !upload.canSend(phase)) return
+        stopPlayback()
+        val requestId = try { noteStore.identity() } catch (_: Exception) {
+            message = "Could not persist recording identity; recording kept"
+            return
+        }
+        upload = upload.begin()
+        message = "Uploading and transcribing… recording kept"
+        scope.launch {
+            val outcome = VoiceMessageClient().send(PrivateConfigStore(context).load(), requestId, file)
+            if (outcome == SendOutcome.Accepted) {
+                try {
+                    noteStore.markAccepted(requestId)
+                    upload = upload.completed(true)
+                    message = "Accepted; reply in Discord · recording kept until Discard"
+                } catch (_: Exception) {
+                    upload = upload.completed(false)
+                    message = "Acceptance could not be saved; recording kept for same-ID retry"
+                }
+            } else {
+                upload = upload.completed(false)
+                message = (outcome as SendOutcome.Failed).message
+            }
+        }
     }
 
     fun background() { pause(); stopPlayback() }
