@@ -26,7 +26,7 @@ import io.github.rolfwessels.cordlet.ui.theme.*
 import kotlinx.coroutines.delay
 
 @Composable
-fun RecorderScreen(session: VoiceSession, botName: String = "Hermes", onStart: () -> Unit, onBack: () -> Unit) {
+fun RecorderScreen(session: VoiceSession, botName: String = "Hermes", botIconBase64: String? = null, onStart: () -> Unit, onBack: () -> Unit) {
     LaunchedEffect(session) { while (true) { session.tick(); delay(100) } }
     CordletTheme {
         val mint = CordletMint
@@ -40,7 +40,7 @@ fun RecorderScreen(session: VoiceSession, botName: String = "Hermes", onStart: (
                 Text("Cordlet", color = CordletText, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(32.dp))
-            Text("Voice note to $botName", color = CordletMuted, fontSize = 13.sp)
+            io.github.rolfwessels.cordlet.ui.BotIdentity(botName, botIconBase64, prefix = "Voice note to ")
             Spacer(Modifier.height(10.dp))
             Text("Say what’s on your mind.", color = CordletText, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, lineHeight = 36.sp)
             Spacer(Modifier.height(48.dp))

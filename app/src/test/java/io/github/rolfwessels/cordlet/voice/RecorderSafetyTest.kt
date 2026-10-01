@@ -51,8 +51,9 @@ class RecorderSafetyTest {
 
     @Test fun recorderReadsImportedNameInsteadOfHardcodedIdentity() {
         val activity = source("voice/RecorderActivity.kt")
-        assertTrue(activity.contains("PrivateConfigStore(applicationContext).load()?.botName"))
-        assertTrue(source("voice/RecorderScreen.kt").contains("Voice note to $" + "botName"))
+        assertTrue(activity.contains("PrivateConfigStore(applicationContext).load()"))
+        assertTrue(activity.contains("botName = config?.botName ?: \"Hermes\""))
+        assertTrue(source("voice/RecorderScreen.kt").contains("BotIdentity(botName, botIconBase64, prefix = \"Voice note to \""))
         assertFalse(source("voice/RecorderScreen.kt").contains("Voice note to Wren"))
     }
 

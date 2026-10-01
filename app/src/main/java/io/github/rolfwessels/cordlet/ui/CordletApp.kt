@@ -81,6 +81,7 @@ fun CordletApp(autoFocus: Boolean = false, focusLaunchId: Int = 0, onVoice: () -
             contentAlignment = Alignment.Center,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                BotIdentity(config?.botName ?: "Hermes", config?.botIconBase64)
                 UtilityStrip(
                     state = composer,
                     onMessageChange = {

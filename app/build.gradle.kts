@@ -12,8 +12,8 @@ android {
         applicationId = "io.github.rolfwessels.cordlet"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0-local-voice"
+        versionCode = 4
+        versionName = "0.3.1-localvoice"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

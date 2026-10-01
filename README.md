@@ -16,12 +16,16 @@ No credential is compiled into either APK variant. The old `discord.local.proper
    ```json
    {
      "endpoint": "http://hermes.bot.sels.co.za/cordlet/messages",
-     "token": "<privately provisioned device bearer token>"
+     "token": "<privately provisioned device bearer token>",
+     "botName": "Hermes",
+     "botIconBase64": null
    }
    ```
 2. Open Cordlet, tap **Import private config**, and choose the file using Android's document picker (SAF). The app requests no broad storage permission or persistent document access. **Replace private config** imports a replacement later.
-3. Endpoint and token are stored only as AES-GCM ciphertext in app-private preferences. The encryption key resides in AndroidKeyStore; backups are disabled. Uninstalling/clearing app data requires reimport. No token is displayed or logged. Remove the plaintext import file and its cloud copy after provisioning; encryption does not protect those external copies.
+3. Endpoint, token, bot name and optional icon are stored only as AES-GCM ciphertext in app-private preferences. The encryption key resides in AndroidKeyStore; backups are disabled. Uninstalling/clearing app data requires reimport. No token is displayed or logged. Remove the plaintext import file and its cloud copy after provisioning; encryption does not protect those external copies.
 4. Enable the phone's private VPN and send a unique harmless message. Confirm acceptance in the app **and exactly one reply in the intended private Discord DM**.
+
+Configuration schema: `endpoint` and `token` are required strings. `botName` is an optional string (default `Hermes`), 1–64 characters without control characters. `botIconBase64` is an optional string or `null` (default `null`), containing raw standard base64 of a PNG or JPEG, without whitespace, a URL or a data-URI prefix. The compressed image must be at most **32 KiB (32768 bytes)** and decoded dimensions **1–256 pixels on each axis**; prepare a 128-pixel PNG for a small avatar. The entire UTF-8 JSON file must be at most **64 KiB (65536 bytes)**. Image signature and decoded bounds are checked before allocating pixels, and invalid images fail import without replacing existing configuration. Older files remain compatible. The small circular avatar appears beside the bot name on text and recorder screens, with a monogram fallback. This is a **single-file offline icon**: no public image hosting or network fetch, and neither the icon nor token is bundled in the APK. Remove the private provisioning file after import.
 
 Cleartext is denied by default and allowed only for the exact `hermes.bot.sels.co.za` domain (no subdomains). Config validation permits that exact HTTP endpoint or HTTPS `/cordlet/messages` endpoints without embedded credentials, query, or fragment. This HTTP proof relies on the private phone VPN for transport protection: do not expose it publicly, disable the VPN for sending, or use Tailscale Funnel. The phone receives a scoped ingress device credential, never Discord credentials or Hermes's general API key.
 

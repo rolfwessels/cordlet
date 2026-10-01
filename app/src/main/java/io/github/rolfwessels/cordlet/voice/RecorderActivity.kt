@@ -22,8 +22,8 @@ class RecorderActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         session = VoiceSession(applicationContext)
-        val botName = PrivateConfigStore(applicationContext).load()?.botName ?: "Hermes"
-        setContent { RecorderScreen(session, botName = botName, onStart = ::requestRecording, onBack = {
+        val config = PrivateConfigStore(applicationContext).load()
+        setContent { RecorderScreen(session, botName = config?.botName ?: "Hermes", botIconBase64 = config?.botIconBase64, onStart = ::requestRecording, onBack = {
             session.close()
             startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
             finish()
