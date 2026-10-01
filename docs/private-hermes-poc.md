@@ -4,7 +4,7 @@
 
 **Local proof PASSED.** The custom ingress accepts HTTP 202, FIFO-queues a separate user turn in the existing DM session, and Wren replies in Discord. The user confirmed receipt. Eleven container tests pass. Earlier sections below retain historical failures; their old restart/pending statements are superseded by this checkpoint.
 
-**Next:** establish private phone connectivity over Tailscale, then wire Cordlet's Send button. Do not redesign the working ingress. Needed from the user: whether the Docker host and Android phone are already connected to the same tailnet. Do not request passwords, Tailscale auth keys, or device credentials in chat. Any login/approval remains a user action.
+**Android transport implemented:** Send now uses imported private ingress config, not compiled Discord credentials. The user reported that `hermes.bot.sels.co.za` was reachable and returned HTTP 401 on unauthenticated POST (routing/connectivity evidence, not authenticated delivery). Import a privately provisioned endpoint/token JSON through SAF; see the README. The existing server is unchanged. Phone APK import/send and one delivered reply remain the next live proof gate. Do not request credentials in chat.
 
 ## Product goal — do not lose this context
 

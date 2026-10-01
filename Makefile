@@ -69,17 +69,12 @@ doctor: ensure-up ## Show Java, Android SDK, ADB, and Gradle versions
 	@$(RUN) bash -lc 'id && java -version && printf "\nAndroid sdkmanager: " && sdkmanager --version && printf "\n" && adb version && if [ -x ./gradlew ]; then printf "\n"; $(GRADLE) --version; else printf "\nGradle wrapper: not created yet\n"; fi'
 
 # Transfer only build inputs, not .git, local.properties, or host build outputs.
-# The ignored discord.local.properties is copied only into the transient build
-# snapshot (never into the development image or tracked sources).
+# Credentials are provisioned on the phone; never transfer them to builds.
 # The container-only snapshot also makes deleted host sources disappear on the next run
 # without ever deleting anything inside the host bind mount.
 sync-sources: ensure-up
 	@set -eu; archive=$$(mktemp); trap 'rm -f "$$archive"' EXIT; \
-		if [ -f discord.local.properties ]; then \
-			tar -cf "$$archive" gradlew gradle settings.gradle.kts build.gradle.kts gradle.properties app/build.gradle.kts app/src discord.local.properties; \
-		else \
-			tar -cf "$$archive" gradlew gradle settings.gradle.kts build.gradle.kts gradle.properties app/build.gradle.kts app/src; \
-		fi; \
+		tar -cf "$$archive" gradlew gradle settings.gradle.kts build.gradle.kts gradle.properties app/build.gradle.kts app/src; \
 		$(BUILD_RUN) sh -c 'rm -rf "$(BUILD_DIR)" && mkdir -p "$(BUILD_DIR)"'; \
 		$(BUILD_RUN) tar -xf - -C '$(BUILD_DIR)' < "$$archive"
 
