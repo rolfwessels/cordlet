@@ -1,5 +1,10 @@
 .DEFAULT_GOAL := help
 
+HERMES_TEST_IMAGE ?= nousresearch/hermes-agent:latest
+.PHONY: ingress-test
+ingress-test: ## Run ingress tests in an isolated Hermes container (no network)
+	@tar -cf - server | docker run --rm -i --network none --entrypoint /bin/sh $(HERMES_TEST_IMAGE) -c 'mkdir -p /tmp/cordlet && tar -xf - -C /tmp/cordlet && cd /tmp/cordlet && PYTHONPATH=/opt/hermes /opt/hermes/.venv/bin/python -m unittest discover -s server/tests -v'
+
 PROJECT := Cordlet
 SERVICE := dev
 COMPOSE ?= docker compose

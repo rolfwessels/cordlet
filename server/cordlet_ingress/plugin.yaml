@@ -1,0 +1,4 @@
+name: cordlet-ingress
+version: 0.1.0
+description: "Private device-authenticated text ingress into one configured Discord DM. Proof of concept."
+author: Rolf Wessels

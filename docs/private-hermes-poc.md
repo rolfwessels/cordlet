@@ -43,9 +43,18 @@ A minimal submission should contain message text and a client-generated request 
 ## Current verified status
 
 - Pulled main at f8d580c (prototype Discord text send; routing unresolved).
-- Created feature/private-hermes-ingress from that commit.
-- No ingress implemented or phone-to-DM delivery proven yet.
-- Tailscale CLI was absent inside the Hermes container; host installation/network still needs discovery.
+- Created feature/private-hermes-ingress from that commit; initial goal/scope committed as 38f599d.
+- Implemented `server/cordlet_ingress`: a native Hermes plugin adding POST /cordlet/messages on the existing API server, using a separate device bearer credential and fixed server-side owner/DM destination.
+- Normalized events are submitted to the Discord adapter's normal admission/queue path, not a separate API agent conversation. Tests confirm the derived key matches the existing DM key. Actual session execution/delivery remains unverified.
+- `make ingress-test`: 8 tests passed in a disposable network-disabled Hermes container, after observing the initial missing-implementation failures. Covers auth, fixed routing, admission semantics, duplicates/conflicts, input validation, malformed JSON, missing Discord adapter, and retry after refused admission.
+- Plugin Doctor passed for both the repository artifact and installed copy.
+- Copied the plugin to /opt/data/plugins/cordlet-ingress, enabled it in the default profile, and created /opt/data/cordlet-ingress.json with a random credential and mode 0600. Verified enabled/configured state without printing the credential. No core patches, Android changes, public exposure, or gateway restart performed.
+- Existing API health returns HTTP 200 on loopback port 8642. The new route currently returns HTTP 404 because the live router predates plugin installation.
+- Executed the real host probe: ID cordlet-proof-f93b6fc0600a4b8d8f03abe3dc157c26, HTTP 404; NOT admitted and NOT a successful delivery test.
+- **Immediate blocker: gateway restart required.** This is the live gateway serving the current conversation. Ask the user to send /restart, then continue with the live host probe; do not mark gate 1 passed until its reply appears in the intended DM.
+- After restart: run `HERMES_HOME=/opt/data /opt/hermes/.venv/bin/python /opt/data/projects/cordlet/server/probe.py`; verify the unique message and response in the active DM transcript plus actual Discord delivery. A 202 alone is not proof.
+- Tailscale CLI was absent inside the Hermes container; host installation/network still needs discovery. Phone gate and APK gate remain pending.
+- See [server operational notes](../server/README.md) for request contract, test/deployment commands, and explicit proof limitations (including process-local dedupe and no delivery-status endpoint).
 
 ## References
 

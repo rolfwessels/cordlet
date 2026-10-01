@@ -1,5 +1,7 @@
 # Next: private, same-session delivery
 
+> **Active iteration:** read [private-hermes-poc.md](private-hermes-poc.md) first. The agreed priority is one-click phone access, replies in the private DM, and proof of the HTTP receiving route before Android changes. The notes below explain the previous Discord failure; they are not a mandate to build every candidate architecture.
+
 ## Where we stopped
 
 Cordlet is a container-built Android widget and compose activity. Tapping the widget opens the activity with text entry focused; **Send** uses the configured bot credential to POST to one configured Discord channel and mention one configured recipient bot. Voice recording and per-widget destination setup are not implemented. The debug APK embeds the test bot token and was transferred privately through the Dropbox `Wren-Access` app folder. This is a phone-test prototype, not a release.
