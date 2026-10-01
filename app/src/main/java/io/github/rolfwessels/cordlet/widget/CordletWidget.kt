@@ -31,8 +31,9 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import io.github.rolfwessels.cordlet.MainActivity
 import io.github.rolfwessels.cordlet.R
+import io.github.rolfwessels.cordlet.voice.RecorderActivity
 
-/** A launcher shortcut, not an editor or recorder. Both targets open the app. */
+/** Separate focused-text and local-recorder launch shortcuts. */
 class CordletWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: android.content.Context, id: androidx.glance.GlanceId) {
         provideContent { CordletWidgetContent() }
@@ -43,6 +44,7 @@ class CordletWidget : GlanceAppWidget() {
 private fun CordletWidgetContent() {
     val context = LocalContext.current
     val openApp = actionStartActivity(Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_FOCUS_COMPOSER, true))
+    val openVoice = actionStartActivity(Intent(context, RecorderActivity::class.java))
     // The launcher may allocate a taller cell than requested. Keep the artwork
     // at its content height rather than stretching the panel to fill that cell.
     Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -55,7 +57,7 @@ private fun CordletWidgetContent() {
             modifier = GlanceModifier.size(36.dp).background(ImageProvider(R.drawable.cordlet_widget_mint_tile)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("C", style = TextStyle(color = ColorProvider(Color(0xFF07110E)), fontSize = 16.sp))
+            Text("C", style = TextStyle(color = ColorProvider(Color(context.getColor(R.color.cordlet_ink))), fontSize = 16.sp))
         }
         Spacer(modifier = GlanceModifier.width(10.dp))
         Box(
@@ -68,7 +70,7 @@ private fun CordletWidgetContent() {
             Text(
                 "Tap to type",
                 modifier = GlanceModifier.padding(horizontal = 12.dp),
-                style = TextStyle(color = ColorProvider(Color(0xFFADB4C0)), fontSize = 14.sp),
+                style = TextStyle(color = ColorProvider(Color(context.getColor(R.color.cordlet_muted))), fontSize = 14.sp),
                 maxLines = 1,
             )
         }
@@ -77,7 +79,7 @@ private fun CordletWidgetContent() {
             modifier = GlanceModifier.size(48.dp)
                 .background(ImageProvider(R.drawable.cordlet_widget_mint_tile))
                 .semantics { contentDescription = context.getString(R.string.widget_open_voice) }
-                .clickable(openApp),
+                .clickable(openVoice),
             contentAlignment = Alignment.Center,
         ) {
             Image(

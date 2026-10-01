@@ -1,0 +1,16 @@
+:root {
+  /* Existing Cordlet Android palette, with named roles. */
+  --background: #0B0E14;
+  --surface: #181D27;
+  --surface-inset: #0F131A;
+  --primary: #32D3A4;
+  --on-primary: #07110E;
+  --text: #F6F8FB;
+  --text-secondary: #ADB4C0;
+  --outline: #2A3140;
+  /* Proposed secondary: cool blue, subordinate to mint. */
+  --secondary: #8EAEE8;
+  --error: #FF5F74;
+  --radius-panel: 24px;
+  --radius-control: 16px;
+}

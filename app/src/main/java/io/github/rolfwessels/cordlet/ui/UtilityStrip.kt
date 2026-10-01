@@ -38,10 +38,10 @@ import io.github.rolfwessels.cordlet.ui.theme.CordletMint
 import io.github.rolfwessels.cordlet.ui.theme.CordletPanel
 import io.github.rolfwessels.cordlet.ui.theme.CordletText
 
-private val wellColor = Color(0xFF0F131A)
-private val borderColor = Color(0xFF2A3140)
-private val inkColor = Color(0xFF07110E)
-private val pressedColor = Color(0xFFFF5F74)
+import io.github.rolfwessels.cordlet.ui.theme.CordletInset
+import io.github.rolfwessels.cordlet.ui.theme.CordletBorder
+import io.github.rolfwessels.cordlet.ui.theme.CordletInk
+import io.github.rolfwessels.cordlet.ui.theme.CordletMuted
 
 @Composable
 fun UtilityStrip(
@@ -56,7 +56,7 @@ fun UtilityStrip(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+            .border(1.dp, CordletBorder, RoundedCornerShape(16.dp))
             .background(CordletPanel, RoundedCornerShape(16.dp))
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -66,7 +66,7 @@ fun UtilityStrip(
             modifier = Modifier.size(36.dp).background(CordletMint, RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("C", color = inkColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            Text("C", color = CordletInk, fontWeight = FontWeight.Black, fontSize = 16.sp)
         }
         BasicTextField(
             value = state.message,
@@ -79,14 +79,14 @@ fun UtilityStrip(
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp)
-                .border(1.dp, Color(0xFF252C38), RoundedCornerShape(10.dp))
-                .background(wellColor, RoundedCornerShape(10.dp))
+                .border(1.dp, CordletBorder, RoundedCornerShape(10.dp))
+                .background(CordletInset, RoundedCornerShape(10.dp))
                 .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
                 .semantics { contentDescription = "Discord message" },
             decorationBox = { innerTextField ->
                 Box(modifier = Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
                     if (state.message.isEmpty()) {
-                        Text("Send something quickly…", color = Color(0xFF636B79), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Send something quickly…", color = CordletMuted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     innerTextField()
                 }
@@ -96,20 +96,19 @@ fun UtilityStrip(
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .background(if (!hasText && state.microphonePressed) pressedColor else CordletMint, RoundedCornerShape(10.dp))
+                .background(CordletMint, RoundedCornerShape(10.dp))
                 .semantics {
-                    contentDescription = if (hasText) "Send Discord message" else "Microphone button, visual feedback only"
-                    if (!hasText) stateDescription = if (state.microphonePressed) "Pressed" else "Not pressed"
+                    contentDescription = if (hasText) "Send Discord message" else "Open voice recorder"
                 }
                 .clickable(
                     role = Role.Button,
-                    onClickLabel = if (hasText) "Send message" else "Press microphone button",
+                    onClickLabel = if (hasText) "Send message" else "Record a voice note",
                     onClick = { if (hasText) { if (!sending) onSendClick() } else onMicrophoneClick() },
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            if (hasText) Text(if (sending) "…" else "Send", color = inkColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            else MicrophoneGlyph(color = if (state.microphonePressed) Color.White else inkColor)
+            if (hasText) Text(if (sending) "…" else "Send", color = CordletInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            else MicrophoneGlyph(color = CordletInk)
         }
     }
 }
