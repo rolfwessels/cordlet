@@ -29,7 +29,9 @@ class PrivateConfigStore(private val context: Context) {
     private fun parse(json: String): IngressConfig {
         val data = JSONObject(json)
         require(data.get("endpoint") is String && data.get("token") is String)
-        return IngressConfig(data.getString("endpoint"), data.getString("token")).also(::validateConfig)
+        require(!data.has("botName") || data.get("botName") is String)
+        val botName = if (data.has("botName")) data.getString("botName") else "Hermes"
+        return IngressConfig(data.getString("endpoint"), data.getString("token"), botName).also(::validateConfig)
     }
     fun load(): IngressConfig? = try {
         prefs.getString("ciphertext", null)?.let { encrypted ->
@@ -55,7 +57,8 @@ class PrivateConfigStore(private val context: Context) {
         val config = parse(String(bytes, Charsets.UTF_8))
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
-        val json = JSONObject().put("endpoint", config.endpoint).put("token", config.token).toString()
+        val json = JSONObject().put("endpoint", config.endpoint).put("token", config.token)
+            .put("botName", config.botName).toString()
         val encrypted = cipher.doFinal(json.toByteArray(Charsets.UTF_8))
         check(prefs.edit().putString("iv", Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
             .putString("ciphertext", Base64.encodeToString(encrypted, Base64.NO_WRAP)).commit())

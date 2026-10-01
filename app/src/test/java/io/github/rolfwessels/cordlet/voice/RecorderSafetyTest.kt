@@ -33,6 +33,36 @@ class RecorderSafetyTest {
         assertTrue(source("widget/CordletWidget.kt").contains("RecorderActivity::class.java"))
     }
 
+    @Test fun waveformUsesRealSamplesAndResetsOnNewRecordingAndDiscard() {
+        val session = source("voice/VoiceSession.kt")
+        assertTrue(session.contains("history = history.sample(level, phase)"))
+        assertTrue(session.substringAfter("fun start()").substringBefore("fun tick()").contains("history = history.reset()"))
+        assertTrue(session.substringAfter("fun discard()").substringBefore("fun background()").contains("history = history.reset()"))
+        assertTrue(source("voice/RecorderScreen.kt").contains("session.history.samples"))
+    }
+
+    @Test fun recorderControlsAreCompactSingleLineAndFixedHeight() {
+        val screen = source("voice/RecorderScreen.kt")
+        assertTrue(screen.contains("VoicePhase.READY -> \"Start\""))
+        assertFalse(screen.contains("heightIn(min = 58.dp)"))
+        assertTrue(screen.contains("height(58.dp)"))
+        assertTrue(screen.contains("maxLines = 1"))
+    }
+
+    @Test fun recorderReadsImportedNameInsteadOfHardcodedIdentity() {
+        val activity = source("voice/RecorderActivity.kt")
+        assertTrue(activity.contains("PrivateConfigStore(applicationContext).load()?.botName"))
+        assertTrue(source("voice/RecorderScreen.kt").contains("Voice note to $" + "botName"))
+        assertFalse(source("voice/RecorderScreen.kt").contains("Voice note to Wren"))
+    }
+
+    @Test fun optionalNameIsStrictlyParsedAndIncludedInEncryptedPayload() {
+        val store = source("ingress/PrivateConfigStore.kt")
+        assertTrue(store.contains("!data.has(\"botName\") || data.get(\"botName\") is String"))
+        assertTrue(store.contains("if (data.has(\"botName\")) data.getString(\"botName\") else \"Hermes\""))
+        assertTrue(store.contains(".put(\"botName\", config.botName)"))
+    }
+
     @Test fun recorderRemainsNonExported() {
         val activities = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
             .newDocumentBuilder().parse(File("src/main/AndroidManifest.xml")).getElementsByTagName("activity")

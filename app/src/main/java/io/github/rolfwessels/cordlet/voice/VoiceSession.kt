@@ -20,6 +20,7 @@ class VoiceSession(context: Context) {
     var phase by mutableStateOf(VoicePhase.READY); private set
     var elapsed by mutableStateOf(0L); private set
     var level by mutableStateOf(0f); private set
+    var history by mutableStateOf(WaveformHistory()); private set
     var playing by mutableStateOf(false); private set
     var message by mutableStateOf(""); private set
 
@@ -77,6 +78,7 @@ class VoiceSession(context: Context) {
             clock = VoiceClock().start(now())
             phase = transition(phase, VoiceEvent.START)
             elapsed = 0
+            history = history.reset()
             message = "Pause to review · up to 5 minutes"
         } catch (_: Exception) { failRecorder("Could not start microphone. Check permission and try again.") }
     }
@@ -86,6 +88,7 @@ class VoiceSession(context: Context) {
         elapsed = clock.elapsed(now())
         try { level = amplitudeLevel(recorder?.maxAmplitude ?: 0) }
         catch (_: Exception) { failRecorder("Microphone interrupted; recoverable audio kept"); return }
+        history = history.sample(level, phase)
         if (limitReached(elapsed)) finish()
     }
 
@@ -159,7 +162,7 @@ class VoiceSession(context: Context) {
         playing = false
     }
 
-    fun permissionDenied() { message = "Microphone permission denied. Tap Start recording to retry; enable Microphone in app settings if blocked." }
+    fun permissionDenied() { message = "Microphone permission denied. Tap Start to retry; enable Microphone in app settings if blocked." }
 
     fun discard() {
         stopPlayback()
@@ -177,6 +180,7 @@ class VoiceSession(context: Context) {
         clock = VoiceClock()
         elapsed = 0
         level = 0f
+        history = history.reset()
         message = "Recording discarded"
     }
 
