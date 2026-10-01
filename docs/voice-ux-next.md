@@ -17,7 +17,7 @@ Every widget/composer microphone tap creates a **new private capture** and start
 
 JVM policy/regression and source guards cover freshness, send eligibility, exact acceptance, independent durable identities, keep-awake policy and lifecycle wiring. They are not device instrumentation. Container tests, lint, APK build and merged-manifest inspection must pass.
 
-The user supplied a successful phone voice sample before this correction; that does **not** verify this new quick-capture APK or the lifecycle changes.
+**Installed-phone quick-capture send and auto-close PASSED (user-confirmed):** the user sent “Okay, the first it looks pretty good. I'm going to click send now.” as a transcribed voice input in the existing DM, then confirmed in a second voice note: “It did indeed close the screen, I like that.” This verifies phone voice delivery and automatic exit for this build. Screen-timeout prevention, every fresh-launch case and failure/background retry checks remain unverified unless separately confirmed.
 
 ## Phone checklist (pending for this build)
 

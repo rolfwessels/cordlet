@@ -12,7 +12,7 @@ The widget mic and empty composer’s mic start **a fresh ephemeral voice captur
 
 There is no automatic retention expiry/aggregate quota, history browser or durable background outbox. Retained private files, including old `latest.*`, are left intact; a new mic tap does not reopen them. Same-note task recreation can restore its audio/identity, but recovery after task loss has no UI in this scope. Explicit Discard affects only the displayed note; clear app data/uninstall removes all notes/configuration. Server deduplication is finite/process-local, not an exactly-once guarantee.
 
-Widget/app colors, real waveform, imported offline bot icon and text flow are preserved. Replies are read in Discord, not Cordlet. The installed-phone config import/text path and a voice sample were user-confirmed before this correction; **the new quick-capture APK and its lifecycle behavior remain unverified on-device**.
+Widget/app colors, real waveform, imported offline bot icon and text flow are preserved. Replies are read in Discord, not Cordlet. The installed-phone config import/text path, quick-capture voice delivery, automatic exit after acceptance and visible Discord transcript echo were user-confirmed. Screen-awake prevention and exhaustive fresh-launch/background/failure cases still need separate device checks.
 
 ## Private device configuration
 
@@ -59,7 +59,7 @@ Install on Android **8.0/API 26 or newer**. If a phone is reachable through cont
 
 See [`docs/private-hermes-poc.md`](docs/private-hermes-poc.md) for verified server proof and remaining phone gates, [`server/README.md`](server/README.md) for the ingress contract, and [`docs/architecture.md`](docs/architecture.md) for historical design notes. The browser previews in `docs/` are illustrative, not device screenshots.
 
-See [`docs/voice-ux-next.md`](docs/voice-ux-next.md) for the implemented recorder scope and physical-phone checklist. The current proof includes voice upload to the companion ingress, where transcription precedes admission; installed-phone voice delivery remains pending. Polished settings, multiple profiles/widget destinations, durable automatic outbox, and in-app replies remain out of scope. Server credentials and authorized DM destination stay on the server.
+See [`docs/voice-ux-next.md`](docs/voice-ux-next.md) for the implemented recorder scope and physical-phone checklist. The current proof includes voice upload to the companion ingress, where transcription precedes admission; installed-phone basic voice delivery and auto-close are user-confirmed; full failure/lifecycle checks remain pending. Polished settings, multiple profiles/widget destinations, durable automatic outbox, and in-app replies remain out of scope. Server credentials and authorized DM destination stay on the server.
 
 ## Development and releases
 

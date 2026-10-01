@@ -19,10 +19,17 @@ class IngressTests(unittest.IsolatedAsyncioTestCase):
         self.module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.module)
         self.events = []
+        self.echoes = []
+        self.order = []
         async def accept(event):
+            self.order.append('dispatch')
             self.events.append(event)
             event._gateway_accepted = True
-        self.discord = SimpleNamespace(handle_message=accept)
+        async def send(chat_id, content, reply_to=None, metadata=None):
+            self.order.append('echo')
+            self.echoes.append((chat_id, content, reply_to, metadata))
+            return SimpleNamespace(success=True, message_id='echo-id')
+        self.discord = SimpleNamespace(handle_message=accept, send=send)
         from gateway.config import Platform
         self.runner = SimpleNamespace(adapters={Platform.DISCORD: self.discord}, _is_user_authorized=lambda source: True)
         self.api = SimpleNamespace(gateway_runner=self.runner)
@@ -178,6 +185,7 @@ class AudioIngressTests(IngressTests):
         self.runner._is_user_authorized = lambda source: False
         self.assertEqual((await self.audio()).status, 403)
         self.assertEqual(self.calls, [])
+        self.assertEqual(self.echoes, [])
         self.assertEqual(list(pathlib.Path(self.home.name).iterdir()), [])
 
     async def test_audio_invalid_headers_and_empty_body(self):
@@ -193,6 +201,7 @@ class AudioIngressTests(IngressTests):
                 yield b'x' * (1024 * 1024)
         self.assertEqual((await self.audio(data=chunks())).status, 413)
         self.assertEqual(self.calls, [])
+        self.assertEqual(self.echoes, [])
         self.assertEqual(list(pathlib.Path(self.home.name).iterdir()), [])
 
     async def test_invalid_probe_and_silence_do_not_queue(self):
@@ -236,6 +245,8 @@ class AudioIngressTests(IngressTests):
         self.assertEqual([r.status for r in responses], [202, 202])
         self.assertEqual(len(self.calls), 1)
         self.assertEqual(len(self.events), 1)
+        self.assertEqual(len(self.echoes), 1)
+        self.assertEqual(self.order, ['echo', 'dispatch'])
         self.assertEqual([(await r.json())['duplicate'] for r in responses], [False, True])
 
     async def test_audio_busy_fifo_never_merges_media_head(self):
@@ -268,6 +279,12 @@ class AudioIngressTests(IngressTests):
         self.assertEqual(next(iter(pending._pending_messages.values())).text, 'first text')
         self.assertTrue(all(e.message_type == MessageType.TEXT for e in self.events))
         self.assertTrue(all(e.media_urls == [] for e in self.events))
+        self.assertEqual(len(self.echoes), 2)
+        self.assertEqual([e.metadata['cordlet_request_id'] for e in conversation.queued_events],
+                         ['note-one', 'note-two'])
+        self.assertEqual((await self.audio('note-one')).status, 202)
+        self.assertEqual(len(self.echoes), 2)
+        self.assertEqual(len(conversation.queued_events), 2)
 
     async def test_timeout_holds_single_slot_and_file_until_thread_finishes(self):
         self.module.STT_TIMEOUT_SECONDS = .03
@@ -297,11 +314,123 @@ class AudioIngressTests(IngressTests):
         self.assertFalse(pathlib.Path(self.calls[0]).exists())
         self.assertEqual(self.events, [])
 
+    async def test_voice_echo_precedes_dispatch_and_duplicate_has_no_echo(self):
+        self.assertEqual((await self.audio()).status, 202)
+        self.assertEqual(self.order, ['echo', 'dispatch'])
+        chat, content, reply_to, metadata = self.echoes[0]
+        self.assertEqual(chat, self.config['chat_id'])
+        self.assertEqual(content, '🎙️ Heard from your voice note:\n'
+                         '_Automatic transcription; may contain mistakes._\n'
+                         '> /stop please remember milk')
+        self.assertIsNone(reply_to)
+        self.assertIsNone(metadata)
+        self.assertEqual((await self.audio()).status, 202)
+        self.assertEqual(len(self.echoes), 1)
+        self.assertEqual(len(self.events), 1)
+
+    async def test_text_has_no_echo(self):
+        self.assertEqual((await self.post({'request_id':'text', 'text':'hello'})).status, 202)
+        self.assertEqual(self.echoes, [])
+
+    async def test_long_multiline_echo_is_quoted_bounded_and_mentions_inert(self):
+        transcript = ('😀' * 2100) + '\n@everyone <@306142339628400640> ```\nlast line'
+        self.module._transcribe_audio = lambda path: {'success':True, 'transcript':transcript}
+        self.assertEqual((await self.audio()).status, 202)
+        self.assertGreater(len(self.echoes), 1)
+        for chat, content, _, _ in self.echoes:
+            self.assertEqual(chat, self.config['chat_id'])
+            self.assertLessEqual(len(content.encode('utf-16-le')) // 2, 2000)
+            self.assertTrue(content.startswith('🎙️ Heard from your voice note:'))
+            self.assertTrue(all(line.startswith('> ') for line in content.splitlines()[2:]))
+            self.assertNotIn('@everyone', content)
+            self.assertNotIn('<@306', content)
+        self.assertIn('last line', self.echoes[-1][1])
+        self.assertIn('@everyone', self.events[0].text)
+
+    async def test_echo_failure_is_not_dispatched_or_repeated_on_retry(self):
+        attempts = []
+        async def fail(chat_id, content):
+            attempts.append(content)
+            return SimpleNamespace(success=False, error='secret-provider-error')
+        self.discord.send = fail
+        for _ in range(2):
+            r = await self.audio()
+            self.assertEqual(r.status, 503)
+            self.assertEqual((await r.json())['error'], 'voice_echo_uncertain')
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(self.events, [])
+        self.assertEqual((await self.audio(data=b'changed')).status, 409)
+
+    async def test_partial_echo_failure_never_replays_chunks_or_dispatches(self):
+        self.module._transcribe_audio = lambda path: {'success':True, 'transcript':'x' * 4000}
+        async def partial(chat_id, content):
+            self.echoes.append((chat_id, content))
+            return SimpleNamespace(success=len(self.echoes) == 1)
+        self.discord.send = partial
+        for _ in range(2):
+            self.assertEqual((await self.audio()).status, 503)
+        self.assertEqual(len(self.echoes), 2)
+        self.assertEqual(self.events, [])
+        self.assertEqual(len(self.calls), 0)  # Replaced fixture above; no provider calls.
+
+    async def test_owner_revoked_during_stt_prevents_echo(self):
+        def revoke(path):
+            self.runner._is_user_authorized = lambda source: False
+            return {'success':True, 'transcript':'private transcript'}
+        self.module._transcribe_audio = revoke
+        self.assertEqual((await self.audio()).status, 403)
+        self.assertEqual(self.echoes, [])
+        self.assertEqual(self.events, [])
+
+    async def test_echo_exception_is_sanitized_and_not_retried(self):
+        async def fail(chat_id, content):
+            self.echoes.append(content)
+            raise RuntimeError('secret-provider-error')
+        self.discord.send = fail
+        for _ in range(2):
+            r = await self.audio()
+            self.assertEqual(r.status, 503)
+            self.assertEqual((await r.json())['error'], 'voice_echo_uncertain')
+        self.assertEqual(len(self.echoes), 1)
+        self.assertEqual(self.events, [])
+
+    async def test_dispatch_exception_after_acceptance_does_not_create_second_answer(self):
+        async def accepted_then_raise(event):
+            self.events.append(event)
+            event._gateway_accepted = True
+            raise RuntimeError('dispatch-error')
+        self.discord.handle_message = accepted_then_raise
+        self.assertEqual((await self.audio()).status, 202)
+        self.assertEqual((await self.audio()).status, 202)
+        self.assertEqual(len(self.events), 1)
+        self.assertEqual(len(self.echoes), 1)
+
+    async def test_uncertain_dispatch_is_not_retried(self):
+        async def uncertain(event):
+            self.events.append(event)
+            raise RuntimeError('dispatch-error')
+        self.discord.handle_message = uncertain
+        for _ in range(2):
+            r = await self.audio()
+            self.assertEqual(r.status, 503)
+            self.assertEqual((await r.json())['error'], 'voice_admission_uncertain')
+        self.assertEqual(len(self.events), 1)
+        self.assertEqual(len(self.echoes), 1)
+
     async def test_audio_not_admitted_is_retryable(self):
         async def refuse(event): pass
         self.discord.handle_message = refuse
         self.assertEqual((await self.audio()).status, 503)
         self.assertEqual(len(self.calls), 1)
+        self.assertEqual(len(self.echoes), 1)
+        async def accept(event):
+            self.events.append(event)
+            event._gateway_accepted = True
+        self.discord.handle_message = accept
+        self.assertEqual((await self.audio()).status, 202)
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(len(self.echoes), 1)
+        self.assertEqual(len(self.events), 1)
 
 
 class ProbeTests(unittest.TestCase):

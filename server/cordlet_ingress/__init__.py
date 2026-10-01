@@ -75,9 +75,31 @@ def _audio_to_transcript(raw):
         transcript = result.get('transcript')
         if not isinstance(transcript, str) or not transcript.strip():
             raise InvalidAudio('inaudible_audio')
-        # Quote every line, not a protocol/control message; native gateway controls off.
-        return 'Quoted voice input (transcribed; not gateway controls):\n' + '\n'.join(
-            '> ' + line for line in transcript.strip().splitlines())
+        return transcript.strip()
+
+
+def _quoted_voice_input(transcript):
+    return 'Quoted voice input (transcribed; not gateway controls):\n' + '\n'.join(
+        '> ' + line for line in transcript.splitlines())
+
+
+def _voice_echo_chunks(transcript):
+    header = ('🎙️ Heard from your voice note:\n'
+              '_Automatic transcription; may contain mistakes._\n')
+    # send() splits long messages, but cannot preserve quote prefixes or report
+    # partial delivery. Send bounded quoted chunks ourselves, without thread metadata.
+    # The inspected adapter has no per-send allowed_mentions option: inert @s instead.
+    safe = transcript.replace('@', '@\u200b')
+    safe = re.sub(r'([\\`*_~|<>])', r'\\\1', safe)
+    chunk = header
+    for line in safe.splitlines():
+        for offset in range(0, max(1, len(line)), 700):
+            quoted = '> ' + line[offset:offset + 700] + '\n'
+            if len((chunk + quoted).encode('utf-16-le')) // 2 > 1900:
+                yield chunk.rstrip('\n')
+                chunk = header
+            chunk += quoted
+    yield chunk.rstrip('\n')
 
 
 def wire(app, api_adapter, config):
@@ -117,45 +139,79 @@ def wire(app, api_adapter, config):
         return discord, source, None
 
     def duplicate(rid, fingerprint):
-        if rid not in accepted:
+        state = accepted.get(rid)
+        if state is None:
             return None
-        if accepted[rid] != fingerprint:
+        if state['fingerprint'] != fingerprint:
             return error('request_id_conflict', 409)
-        return receipt(rid, True)
+        if state['phase'] == 'accepted':
+            return receipt(rid, True)
+        if state['phase'] in ('voice_echo_uncertain', 'voice_admission_uncertain'):
+            return error(state['phase'], 503)
+        return None  # Echo succeeded but explicit non-admission permits dispatch retry.
+
+    def remember(rid, state):
+        accepted[rid] = state
+        if len(accepted) > 512:
+            accepted.popitem(last=False)
 
     def receipt(rid, repeated=False):
         return web.json_response({'request_id': rid, 'status': 'accepted', 'duplicate': repeated}, status=202)
 
-    async def admit(rid, fingerprint, text):
-        # Caller holds lock: receipt, dispatch and insertion are one admission operation.
+    async def admit(rid, fingerprint, text, transcript=None):
+        # Caller holds lock; Discord echo and admission are NOT atomic. Reserve a
+        # receipt before side effects and fail closed on ambiguous outcomes.
         previous = duplicate(rid, fingerprint)
         if previous is not None:
             return previous
         discord, source, failure = owner()
         if failure is not None:
             return failure
+        state = accepted.get(rid)
+        if transcript is not None and state is None:
+            state = {'fingerprint': fingerprint, 'phase': 'voice_echo_uncertain', 'text': text}
+            remember(rid, state)
+            try:
+                for chunk in _voice_echo_chunks(transcript):
+                    result = await discord.send(chat_id=config['chat_id'], content=chunk)
+                    if getattr(result, 'success', False) is not True:
+                        return error('voice_echo_uncertain', 503)
+            except Exception:
+                return error('voice_echo_uncertain', 503)
+            state['phase'] = 'echoed'
         event = MessageEvent(text=text, source=source, user_id=source.user_id,
                              user_name=source.user_name, internal=True,
                              allow_gateway_control=False,
                              metadata={'cordlet_request_id': rid})
-        await discord.handle_message(event)
-        if event._gateway_accepted is not True:
-            return error('gateway_not_admitted', 503)
-        accepted[rid] = fingerprint
-        if len(accepted) > 512:
-            accepted.popitem(last=False)
+        if state is not None:
+            state['phase'] = 'voice_admission_uncertain'
+        try:
+            await discord.handle_message(event)
+        except Exception:
+            if event._gateway_accepted is not True:
+                return error('voice_admission_uncertain' if state is not None else 'gateway_not_admitted', 503)
+        else:
+            if event._gateway_accepted is not True:
+                if state is not None:
+                    state['phase'] = 'echoed'
+                return error('gateway_not_admitted', 503)
+        if state is None:
+            state = {'fingerprint': fingerprint}
+        state['phase'] = 'accepted'
+        state.pop('text', None)
+        remember(rid, state)
         return receipt(rid)
 
     async def voice_job(rid, fingerprint, worker):
         try:
-            text = await asyncio.wait_for(asyncio.shield(worker), STT_TIMEOUT_SECONDS)
+            transcript = await asyncio.wait_for(asyncio.shield(worker), STT_TIMEOUT_SECONDS)
         except InvalidAudio as exc:
             return error(str(exc), 422)
         except Exception:
             # Do not expose provider errors or discard the client's retryable note.
             return error('transcription_unavailable', 503)
         async with lock:
-            return await admit(rid, fingerprint, text)
+            return await admit(rid, fingerprint, _quoted_voice_input(transcript), transcript)
 
     def release_voice(state):
         nonlocal voice
@@ -199,6 +255,9 @@ def wire(app, api_adapter, config):
                 previous = duplicate(rid, fingerprint)
                 if previous is not None:
                     return previous
+                state = accepted.get(rid)
+                if state is not None and state['phase'] == 'echoed':
+                    return await admit(rid, fingerprint, state['text'])
                 if voice is not None:
                     if voice['rid'] == rid and voice['fingerprint'] != fingerprint:
                         return error('request_id_conflict', 409)
