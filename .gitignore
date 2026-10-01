@@ -7,8 +7,14 @@
 local.properties
 **/local.properties
 
-# Local Discord test credentials
+# Local credentials and phone provisioning (never commit)
 discord.local.properties
+.env
+.env.*
+!.env.example
+cordlet-ingress.json
+cordlet-device.json
+
 
 # IDE state
 .idea/

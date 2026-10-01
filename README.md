@@ -6,7 +6,7 @@ Android home-screen shortcut for sending text to private Hermes ingress, with re
 
 The unchanged widget text area launches the Compose activity with its field focused. Type a message and tap **Send** or keyboard Send. Cordlet posts JSON `request_id` and `text` to the imported endpoint with `Authorization: Bearer <device token>`. Success requires HTTP **202**, JSON `status: "accepted"`, and a matching `request_id`; it means queue admission, **not** agent completion or Discord delivery. Accepted input clears; errors retain it. Unchanged-text retries reuse the ID; editing or acceptance generates a new one. Text and retry identity survive activity recreation, but this is not a durable background outbox. Redirects are refused.
 
-The mic still provides visual feedback only: no recording or voice upload. Widget geometry/artwork and composer controls are unchanged. Replies are read in Discord, not Cordlet. Phone install, widget layout, SAF import, Keystore operation, and end-to-end phone delivery still require device verification.
+The mic still provides visual feedback only: no recording or voice upload. Widget geometry/artwork and composer controls are unchanged. Replies are read in Discord, not Cordlet. The installed-phone config import and basic send path were user-confirmed: acceptance displayed, text cleared, and Wren replied in the existing DM. All launcher/widget behavior, offline retries and other-device compatibility still require verification.
 
 ## Private device configuration
 
