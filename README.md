@@ -4,6 +4,10 @@ An open-source Android home-screen shortcut for sending text and voice messages 
 
 Cordlet is intentionally destination-agnostic. The current test build posts as a configured sender bot into a shared Discord server channel and explicitly mentions a configured recipient bot. It does not post into a DM between other users or bots.
 
+## Active work: private Hermes proof of concept
+
+**Goal: one-click access to Wren from the home screen, with replies in the private Discord DM.** We are testing authenticated private HTTP ingress over Tailscale before changing Android transport. See [`docs/private-hermes-poc.md`](docs/private-hermes-poc.md) for the agreed scope, proof gates, verified progress, and resume checklist. Read it before continuing development; the existing Discord transport is a prototype, not proof of the intended route.
+
 ## Project status
 
 **Phase:** text-to-Discord prototype on `feature/discord-text` (not a tagged release). Widget rendering still needs phone verification.
